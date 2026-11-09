@@ -23,7 +23,9 @@ export default function App() {
   const { session, loading, profile } = useAuth();
   if (!isConfigured) return (
     <div className="max-w-xl mx-auto mt-24 px-4"><Alert tone="warn" title="Supabase is not configured">
-      Copy <code>.env.example</code> to <code>.env</code> and set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>, then restart the dev server. See README → Setup.
+      This build was made without <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>.
+      On GitHub Pages: add both as repository secrets (Settings → Secrets and variables → Actions), then re-run the “Deploy to GitHub Pages” workflow.
+      Locally: copy <code>.env.example</code> to <code>.env</code>, fill them in and restart <code>npm run dev</code>.
     </Alert></div>
   );
   if (loading) return <Spinner label="Starting…" />;

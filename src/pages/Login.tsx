@@ -16,7 +16,7 @@ export default function Login() {
         if (error) throw error;
         if (!data.session) setMsg('Check your inbox to confirm your email, then sign in.');
       }
-      if (mode === 'reset') { const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin }); if (error) throw error; setMsg('Password reset email sent.'); }
+      if (mode === 'reset') { const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname }); if (error) throw error; setMsg('Password reset email sent.'); }
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
 

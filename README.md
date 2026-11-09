@@ -93,6 +93,16 @@ psql "$DATABASE_URL" -f supabase/seed_demo.sql
 This seed creates clearly fictional `[DEMO]` records on `.example` domains with `is_demo = true`. They only appear when **Demo mode** is switched on in the top bar. Real and demo data are never shown together, and exports are filtered the same way.
 
 ### 8. Deploy the frontend
+
+**GitHub Pages (included):** `.github/workflows/deploy.yml` builds the app and publishes it on every push to `main`.
+1. Repo → **Settings → Pages → Build and deployment → Source: GitHub Actions** (not "Deploy from a branch" — serving the raw source gives a blank page).
+2. Repo → **Settings → Secrets and variables → Actions → New repository secret**: add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+3. Push (or Actions → *Deploy to GitHub Pages* → Run workflow). The site appears at `https://<owner>.github.io/<repo>/`.
+4. Supabase → Authentication → URL Configuration: add `https://<owner>.github.io/<repo>/` as Site URL / redirect URL.
+
+The app uses hash routes (`/#/leads`), so refreshing any page works on static hosting.
+
+**Other hosts:**
 `npm run build` produces static files in `dist/`. You can host them on Vercel, Netlify, Cloudflare Pages or Supabase hosting. Set the two `VITE_` variables in the host, and add the production URL to Supabase Auth → URL configuration. Optionally set `ALLOWED_ORIGIN` as a function secret to lock down CORS.
 
 ---

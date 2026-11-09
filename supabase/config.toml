@@ -1,0 +1,33 @@
+project_id = "wot-lead-intelligence"
+
+[api]
+port = 54321
+schemas = ["public"]
+
+[db]
+port = 54322
+major_version = 15
+
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173"]
+enable_signup = true
+
+[auth.email]
+enable_confirmations = false
+
+# All functions verify the caller's JWT; each function also checks the user's role.
+[functions.campaign-runner]
+verify_jwt = true
+[functions.discover-companies]
+verify_jwt = true
+[functions.find-contacts]
+verify_jwt = true
+[functions.research-company]
+verify_jwt = true
+[functions.generate-outreach]
+verify_jwt = true
+[functions.score-leads]
+verify_jwt = true
+[functions.integrations]
+verify_jwt = true

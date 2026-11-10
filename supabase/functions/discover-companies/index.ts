@@ -20,13 +20,14 @@ Deno.serve(handler(async (req, body) => {
       segments: segs, industries: chosen.map(i => i.name), industryKeywords: [...new Set(chosen.flatMap(i => i.keywords))],
       countries: sel, cities: f.cities ?? [], minEmployees: f.min_employees ?? null, maxEmployees: f.max_employees ?? null,
       keyword: f.keyword ?? null, page: f.page ?? 1, perPage: 25,
-    }, f.provider ? [f.provider] : undefined);
+    }, f.providers?.length ? f.providers : f.provider ? [f.provider] : undefined);
     await logUsage(ctx, r.provider, 'company_search', 1, true, { results: r.items.length });
     // flag existing
     const domains = r.items.map(i => i.domain).filter(Boolean) as string[];
     const { data: existing } = domains.length ? await ctx.admin.from('companies').select('id, domain').in('domain', domains).eq('is_demo', false) : { data: [] };
     const byDomain = new Map((existing ?? []).map(e => [e.domain, e.id]));
-    const filtered = r.items.filter(i => !f.ownership || i.ownership === f.ownership);
+    const own: string[] = Array.isArray(f.ownership) ? f.ownership : f.ownership ? [f.ownership] : [];
+    const filtered = r.items.filter(i => !own.length || own.includes(i.ownership));
     return json({ provider: r.provider, tried: r.tried, exhausted: r.exhausted, items: filtered.map(i => ({ ...i, existing_id: i.domain ? byDomain.get(i.domain) ?? null : null })) });
   }
   if (body.action === 'save') {

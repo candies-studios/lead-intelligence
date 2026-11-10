@@ -5,7 +5,8 @@ import { supabase, callFn } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useAsync, useRefData, q, fmtNum, fmtDate } from '@/lib/hooks';
 import { providerLabel } from '@/lib/constants';
-import { Alert, Badge, Button, Card, ChipSelect, EmptyState, Field, Input, PageHeader, Select, Spinner, Table, Td, Th, Tabs, toast, ExternalLink } from '@/components/ui';
+import { Alert, Badge, Button, Card, EmptyState, Field, Input, PageHeader, Spinner, Table, Td, Th, Tabs, toast, ExternalLink, MultiSelect } from '@/components/ui';
+import { countryOptions, industryOptions, segmentOptions, toOptions, SIZE_BANDS, sizeOrFilter, PROVIDER_OPTIONS } from '@/lib/options';
 import CompanyForm from '@/components/CompanyForm';
 
 export default function Discover() {
@@ -25,7 +26,7 @@ function ProviderSearch({ onSaved }: { onSaved: () => void }) {
   const [industries, setIndustries] = useState<string[]>([]);
   const [countries, setCountries] = useState<string[]>(['IN']);
   const [city, setCity] = useState(''); const [minEmp, setMinEmp] = useState('500'); const [maxEmp, setMaxEmp] = useState('');
-  const [keyword, setKeyword] = useState(''); const [ownership, setOwnership] = useState(''); const [provider, setProvider] = useState('');
+  const [keyword, setKeyword] = useState(''); const [ownership, setOwnership] = useState<string[]>([]); const [providers, setProviders] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [res, setRes] = useState<any | null>(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState<string | null>(null);
   const [sel, setSel] = useState<Set<number>>(new Set()); const [saving, setSaving] = useState(false);
@@ -33,7 +34,8 @@ function ProviderSearch({ onSaved }: { onSaved: () => void }) {
   const run = async (p = 1) => {
     setBusy(true); setErr(null); setSel(new Set());
     try {
-      const r = await callFn('discover-companies', { action: 'search', filters: { segments, industries, countries, cities: city ? city.split(',').map(s => s.trim()).filter(Boolean) : [], min_employees: minEmp ? +minEmp : null, max_employees: maxEmp ? +maxEmp : null, keyword: keyword || null, ownership: ownership || null, provider: provider || null, page: p } });
+      const r = await callFn('discover-companies', { action: 'search', filters: { segments, industries, countries, cities: city ? city.split(',').map(s => s.trim()).filter(Boolean) : [], min_employees: minEmp ? +minEmp : null, max_employees: maxEmp ? +maxEmp : null, keyword: keyword || null, providers, page: p } });
+      if (ownership.length) r.items = r.items.filter((i: any) => ownership.includes(i.ownership));
       setRes(r); setPage(p);
     } catch (e) { setErr((e as Error).message); setRes(null); } finally { setBusy(false); }
   };
@@ -46,15 +48,14 @@ function ProviderSearch({ onSaved }: { onSaved: () => void }) {
       onSaved();
     } catch (e) { toast.error((e as Error).message); } finally { setSaving(false); }
   };
-  const indOpts = (ref.data?.industries ?? []).filter(i => i.is_active && segments.includes(i.segment)).map(i => i.name);
 
   return (
     <div className="grid xl:grid-cols-[360px_1fr] gap-5">
       <Card title="Search criteria">
         <div className="space-y-4">
-          <Field label="Sector groups" hint={`${ref.data?.segments.length ?? 0} sector groups · ${ref.data?.industries.filter(i => i.is_active).length ?? 0} industries`}><ChipSelect options={ref.data?.segments ?? []} value={segments} onChange={v => { setSegments(v); setIndustries([]); }} /></Field>
-          <Field label="Industries (optional)" hint="Leave empty to include every industry in the selected sector groups"><ChipSelect options={indOpts} value={industries} onChange={setIndustries} /></Field>
-          <Field label="Countries"><ChipSelect options={(ref.data?.countries ?? []).filter(c => c.is_active).map(c => c.code)} value={countries} onChange={setCountries} labels={Object.fromEntries((ref.data?.countries ?? []).map(c => [c.code, c.name]))} /></Field>
+          <Field label="Sector groups" hint={`${ref.data?.segments.length ?? 0} sector groups · ${ref.data?.industries.filter(i => i.is_active).length ?? 0} industries`}><MultiSelect options={segmentOptions(ref.data)} value={segments} placeholder="Select sector groups" onChange={v => { setSegments(v); setIndustries(industries.filter(n => ref.data?.industries.some(i => i.name === n && v.includes(i.segment)))); }} /></Field>
+          <Field label="Industries (optional)" hint="Leave empty to include every industry in the selected sector groups"><MultiSelect options={industryOptions(ref.data, segments)} value={industries} placeholder="All industries in selected groups" onChange={setIndustries} /></Field>
+          <Field label="Countries"><MultiSelect options={countryOptions(ref.data)} value={countries} placeholder="Select countries" onChange={setCountries} /></Field>
           <Field label="Cities (comma-separated, optional)"><Input value={city} onChange={e => setCity(e.target.value)} placeholder="Mumbai, Gurugram" /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Min employees"><Input type="number" value={minEmp} onChange={e => setMinEmp(e.target.value)} /></Field>
@@ -62,8 +63,8 @@ function ProviderSearch({ onSaved }: { onSaved: () => void }) {
           </div>
           <Field label="Company name / keyword"><Input value={keyword} onChange={e => setKeyword(e.target.value)} /></Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Ownership"><Select value={ownership} onChange={e => setOwnership(e.target.value)}><option value="">Any</option><option value="public">Public</option><option value="private">Private</option><option value="subsidiary">Subsidiary</option></Select></Field>
-            <Field label="Provider"><Select value={provider} onChange={e => setProvider(e.target.value)}><option value="">Auto (best available)</option><option value="apollo">Apollo</option><option value="pdl">People Data Labs</option><option value="ai">AI web search (Gemini / Claude)</option></Select></Field>
+            <Field label="Ownership"><MultiSelect options={toOptions(['public', 'private', 'subsidiary'], { public: 'Public', private: 'Private', subsidiary: 'Subsidiary' })} value={ownership} placeholder="Any" onChange={setOwnership} /></Field>
+            <Field label="Providers"><MultiSelect options={PROVIDER_OPTIONS} value={providers} placeholder="Auto (best available)" onChange={setProviders} footerNote="Tried in the order shown" /></Field>
           </div>
           <Button variant="primary" className="w-full" icon={<Search className="h-4 w-4" />} loading={busy} onClick={() => run(1)} disabled={!countries.length || !segments.length}>Search companies</Button>
         </div>
@@ -104,32 +105,32 @@ function CompanyDatabase() {
   const { demo } = useAuth();
   const ref = useRefData();
   const nav = useNavigate();
-  const [text, setText] = useState(''); const [country, setCountry] = useState(''); const [segment, setSegment] = useState('');
-  const [industry, setIndustry] = useState(''); const [size, setSize] = useState(''); const [cls, setCls] = useState(''); const [own, setOwn] = useState('');
+  const [text, setText] = useState(''); const [country, setCountry] = useState<string[]>([]); const [segment, setSegment] = useState<string[]>([]);
+  const [industry, setIndustry] = useState<string[]>([]); const [size, setSize] = useState<string[]>([]); const [cls, setCls] = useState<string[]>([]); const [own, setOwn] = useState<string[]>([]);
   const [adding, setAdding] = useState(false);
   const list = useAsync(() => {
     let x = supabase.from('companies').select('id, name, website, industry, industry_segment, country_code, hq_city, employee_count, classification, ownership, parent_company_name, data_provider, last_verified_at, contacts(count), company_brands(brand_name)').eq('is_demo', demo).order('name').limit(500);
-    if (country) x = x.eq('country_code', country);
-    if (segment) x = x.eq('industry_segment', segment);
-    if (industry) x = x.eq('industry', industry);
-    if (cls) x = x.eq('classification', cls);
-    if (own) x = x.eq('ownership', own);
-    if (size) { const [a, b] = size.split('-').map(Number); x = x.gte('employee_count', a); if (b) x = x.lte('employee_count', b); }
+    if (country.length) x = x.in('country_code', country);
+    if (segment.length) x = x.in('industry_segment', segment);
+    if (industry.length) x = x.in('industry', industry);
+    if (cls.length) x = x.in('classification', cls);
+    if (own.length) x = x.in('ownership', own);
+    if (size.length) x = x.or(sizeOrFilter(size));
     if (text) x = x.ilike('name', `%${text}%`);
     return q(x);
-  }, [demo, country, segment, industry, size, cls, own, text]);
+  }, [demo, country.join(), segment.join(), industry.join(), size.join(), cls.join(), own.join(), text]);
   const rows = useMemo(() => (list.data as any[]) ?? [], [list.data]);
 
   return (
     <Card pad={false}>
       <div className="flex flex-wrap gap-2 p-4 border-b border-slate-100">
         <Input placeholder="Search company name…" value={text} onChange={e => setText(e.target.value)} className="max-w-xs" />
-        <Select value={country} onChange={e => setCountry(e.target.value)} className="w-40"><option value="">All countries</option>{ref.data?.countries.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}</Select>
-        <Select value={segment} onChange={e => setSegment(e.target.value)} className="w-52"><option value="">All sector groups</option>{ref.data?.segments.map(s => <option key={s}>{s}</option>)}</Select>
-        <Select value={industry} onChange={e => setIndustry(e.target.value)} className="w-48"><option value="">All industries</option>{ref.data?.industries.map(i => <option key={i.id}>{i.name}</option>)}</Select>
-        <Select value={size} onChange={e => setSize(e.target.value)} className="w-36"><option value="">Any size</option><option value="200-499">200–499</option><option value="500-999">500–999</option><option value="1000-4999">1,000–4,999</option><option value="5000">5,000+</option></Select>
-        <Select value={cls} onChange={e => setCls(e.target.value)} className="w-36"><option value="">Any type</option>{['manufacturer', 'distributor', 'retailer', 'ecommerce', 'mixed'].map(o => <option key={o}>{o}</option>)}</Select>
-        <Select value={own} onChange={e => setOwn(e.target.value)} className="w-32"><option value="">Any ownership</option>{['public', 'private', 'subsidiary'].map(o => <option key={o}>{o}</option>)}</Select>
+        <div className="w-44"><MultiSelect options={countryOptions(ref.data, false)} value={country} onChange={setCountry} placeholder="All countries" /></div>
+        <div className="w-52"><MultiSelect options={segmentOptions(ref.data)} value={segment} onChange={setSegment} placeholder="All sector groups" /></div>
+        <div className="w-52"><MultiSelect options={industryOptions(ref.data, segment)} value={industry} onChange={setIndustry} placeholder="All industries" /></div>
+        <div className="w-36"><MultiSelect options={SIZE_BANDS} value={size} onChange={setSize} placeholder="Any size" /></div>
+        <div className="w-40"><MultiSelect options={toOptions(['manufacturer', 'distributor', 'retailer', 'ecommerce', 'mixed', 'unknown'], { manufacturer: 'Manufacturer', distributor: 'Distributor', retailer: 'Retailer', ecommerce: 'E-commerce', mixed: 'Mixed', unknown: 'Unknown' })} value={cls} onChange={setCls} placeholder="Any type" /></div>
+        <div className="w-40"><MultiSelect options={toOptions(['public', 'private', 'subsidiary', 'unknown'], { public: 'Public', private: 'Private', subsidiary: 'Subsidiary', unknown: 'Unknown' })} value={own} onChange={setOwn} placeholder="Any ownership" /></div>
         <div className="flex-1" />
         <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setAdding(true)}>Add manually</Button>
       </div>

@@ -3,9 +3,10 @@ import { Link, useParams } from 'react-router-dom';
 import { Sparkles, UserSearch, Radar, Pencil, Plus, Send, Linkedin, Mail } from 'lucide-react';
 import { supabase, callFn } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { useAsync, q, fmtNum, fmtDate } from '@/lib/hooks';
-import { DEPARTMENTS, DEPT_LABEL, SENIORITY_LABEL, SIGNAL_LABEL, providerLabel } from '@/lib/constants';
-import { Alert, Badge, Button, Card, ChipSelect, ConfidenceBadge, EmailStatusBadge, EmptyState, ExternalLink, Field, Input, Modal, PageHeader, ScoreBadge, Spinner, Table, Td, Th, StageBadge, toast } from '@/components/ui';
+import { useAsync, q, fmtNum, fmtDate, fmtDateTime } from '@/lib/hooks';
+import { TARGET_DEPARTMENTS, DEPT_LABEL, SENIORITY_LABEL, SIGNAL_LABEL, providerLabel } from '@/lib/constants';
+import { Alert, Badge, Button, Card, ConfidenceBadge, EmailStatusBadge, EmptyState, ExternalLink, Field, Input, Modal, PageHeader, ScoreBadge, Spinner, Table, Td, Th, StageBadge, toast, MultiSelect, Select } from '@/components/ui';
+import { toOptions } from '@/lib/options';
 import CompanyForm from '@/components/CompanyForm';
 import ContactForm from '@/components/ContactForm';
 import ReportView from '@/components/ReportView';
@@ -79,7 +80,7 @@ export default function CompanyProfile() {
             )}
           </Card>
 
-          <Card title="AI Company Intelligence Report" action={(reports.data as any[])?.length > 1 && <select className="text-xs border rounded px-1 py-0.5" value={reportIdx} onChange={e => setReportIdx(+e.target.value)}>{(reports.data as any[]).map((r, i) => <option key={r.id} value={i}>{fmtDate(r.created_at)}</option>)}</select>}>
+          <Card title="AI Company Intelligence Report" action={(reports.data as any[])?.length > 1 && <Select className="w-40 h-8" value={String(reportIdx)} onChange={e => setReportIdx(+e.target.value)}>{(reports.data as any[]).map((r, i) => <option key={r.id} value={String(i)}>{fmtDateTime(r.created_at)}</option>)}</Select>}>
             {report ? <ReportView report={report} contacts={contacts.data as any[]} /> : <EmptyState icon={<Sparkles className="h-5 w-5" />} title="No report yet" action={<Button variant="primary" loading={researching} onClick={research}>Generate report</Button>}>The report uses only retrieved information and lists every source with a confidence level.</EmptyState>}
           </Card>
         </div>
@@ -153,8 +154,8 @@ export function FindContactsModal({ companyId, onClose, onDone }: { companyId: s
         </div>
       ) : (
         <div className="space-y-4">
-          <Field label="Target functions"><ChipSelect options={DEPARTMENTS.filter(d => d !== 'other')} value={depts} onChange={setDepts} labels={DEPT_LABEL} /></Field>
-          <Field label="Seniority"><ChipSelect options={['cxo', 'vp', 'director', 'head', 'senior', 'manager'] as const} value={sens as any} onChange={setSens} labels={SENIORITY_LABEL} /></Field>
+          <Field label="Target functions"><MultiSelect options={toOptions(TARGET_DEPARTMENTS, DEPT_LABEL)} value={depts} placeholder="Select functions" onChange={setDepts} /></Field>
+          <Field label="Seniority"><MultiSelect options={toOptions(['cxo', 'vp', 'director', 'head', 'senior', 'manager'], SENIORITY_LABEL)} value={sens} placeholder="Select seniority" onChange={setSens} /></Field>
           <Field label="Max contacts"><Input type="number" min={1} max={15} value={limit} onChange={e => setLimit(e.target.value)} className="w-24" /></Field>
           <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={enrich} onChange={e => setEnrich(e.target.checked)} className="mt-1 accent-navy-700" /><span>Enrich & verify emails <span className="block text-xs text-ink-faint">Uses Apollo enrichment / Hunter verification credits.</span></span></label>
           <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={signals} onChange={e => setSignals(e.target.checked)} className="mt-1 accent-navy-700" /><span>Also detect buying signals</span></label>

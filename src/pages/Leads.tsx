@@ -5,7 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useAsync, useRefData, q, fmtDate, fmtMoney } from '@/lib/hooks';
 import { DEPARTMENTS, DEPT_LABEL, STAGES, STAGE_LABEL, type Stage } from '@/lib/constants';
-import { Alert, Badge, Button, Card, EmailStatusBadge, EmptyState, Input, PageHeader, ScoreBadge, Select, Spinner, StageBadge, Table, Td, Th, toast, cx } from '@/components/ui';
+import { Alert, Badge, Button, Card, EmailStatusBadge, EmptyState, Input, PageHeader, ScoreBadge, Select, Spinner, StageBadge, Table, Td, Th, toast, cx, MultiSelect } from '@/components/ui';
+import { countryOptions, segmentOptions, toOptions, userOptions } from '@/lib/options';
 import { ExportButton } from '@/components/ExportModal';
 
 export async function updateLeadStage(ids: string[], stage: Stage): Promise<boolean> {
@@ -23,20 +24,24 @@ export async function updateLeadStage(ids: string[], stage: Stage): Promise<bool
 export default function Leads() {
   const { demo } = useAuth(); const ref = useRefData(); const nav = useNavigate();
   const [view, setView] = useState<'table' | 'kanban'>('table');
-  const [text, setText] = useState(''); const [stage, setStage] = useState(''); const [prio, setPrio] = useState(''); const [country, setCountry] = useState('');
-  const [dept, setDept] = useState(''); const [owner, setOwner] = useState(''); const [seg, setSeg] = useState('');
+  const [text, setText] = useState(''); const [stage, setStage] = useState<string[]>([]); const [prio, setPrio] = useState<string[]>([]); const [country, setCountry] = useState<string[]>([]);
+  const [dept, setDept] = useState<string[]>([]); const [owner, setOwner] = useState<string[]>([]); const [seg, setSeg] = useState<string[]>([]);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const list = useAsync(() => {
     let x = supabase.from('v_lead_overview').select('*').eq('is_demo', demo).order('score', { ascending: false, nullsFirst: false }).limit(1000);
-    if (stage) x = x.eq('stage', stage);
-    if (prio) x = x.eq('priority', prio);
-    if (country) x = x.eq('country_code', country);
-    if (dept) x = x.eq('contact_department', dept);
-    if (seg) x = x.eq('industry_segment', seg);
-    if (owner === 'none') x = x.is('assigned_to', null); else if (owner) x = x.eq('assigned_to', owner);
+    if (stage.length) x = x.in('stage', stage);
+    if (prio.length) x = x.in('priority', prio);
+    if (country.length) x = x.in('country_code', country);
+    if (dept.length) x = x.in('contact_department', dept);
+    if (seg.length) x = x.in('industry_segment', seg);
+    if (owner.length) {
+      const ids = owner.filter(o => o !== 'none');
+      const parts = [...(owner.includes('none') ? ['assigned_to.is.null'] : []), ...(ids.length ? [`assigned_to.in.(${ids.join(',')})`] : [])];
+      x = x.or(parts.join(','));
+    }
     if (text) x = x.or(`company_name.ilike.%${text}%,contact_name.ilike.%${text}%,contact_title.ilike.%${text}%`);
     return q(x);
-  }, [demo, stage, prio, country, dept, owner, text, seg]);
+  }, [demo, stage.join(), prio.join(), country.join(), dept.join(), owner.join(), text, seg.join()]);
   const rows = useMemo(() => (list.data as any[]) ?? [], [list.data]);
   const users = (ref.data?.users ?? []).filter(u => u.is_active);
 
@@ -57,12 +62,12 @@ export default function Leads() {
       <Card pad={false}>
         <div className="flex flex-wrap gap-2 p-4 border-b border-slate-100">
           <Input placeholder="Company, contact or title…" value={text} onChange={e => setText(e.target.value)} className="max-w-xs" />
-          <Select value={stage} onChange={e => setStage(e.target.value)} className="w-44"><option value="">All stages</option>{STAGES.map(s => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}</Select>
-          <Select value={prio} onChange={e => setPrio(e.target.value)} className="w-36"><option value="">All priorities</option><option value="A">Priority A</option><option value="B">Priority B</option><option value="C">Priority C</option><option value="R">Research req.</option></Select>
-          <Select value={seg} onChange={e => setSeg(e.target.value)} className="w-52"><option value="">All sector groups</option>{ref.data?.segments.map(s => <option key={s}>{s}</option>)}</Select>
-          <Select value={country} onChange={e => setCountry(e.target.value)} className="w-40"><option value="">All countries</option>{ref.data?.countries.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}</Select>
-          <Select value={dept} onChange={e => setDept(e.target.value)} className="w-48"><option value="">All functions</option>{DEPARTMENTS.map(d => <option key={d} value={d}>{DEPT_LABEL[d]}</option>)}</Select>
-          <Select value={owner} onChange={e => setOwner(e.target.value)} className="w-44"><option value="">Any owner</option><option value="none">Unassigned</option>{users.map(u => <option key={u.id} value={u.id}>{u.full_name ?? u.email}</option>)}</Select>
+          <div className="w-44"><MultiSelect options={toOptions(STAGES, STAGE_LABEL)} value={stage} onChange={setStage} placeholder="All stages" /></div>
+          <div className="w-40"><MultiSelect options={toOptions(['A', 'B', 'C', 'R'], { A: 'Priority A', B: 'Priority B', C: 'Priority C', R: 'Research required' })} value={prio} onChange={setPrio} placeholder="All priorities" /></div>
+          <div className="w-52"><MultiSelect options={segmentOptions(ref.data)} value={seg} onChange={setSeg} placeholder="All sector groups" /></div>
+          <div className="w-44"><MultiSelect options={countryOptions(ref.data, false)} value={country} onChange={setCountry} placeholder="All countries" /></div>
+          <div className="w-52"><MultiSelect options={toOptions(DEPARTMENTS, DEPT_LABEL)} value={dept} onChange={setDept} placeholder="All functions" /></div>
+          <div className="w-44"><MultiSelect options={userOptions(ref.data, true)} value={owner} onChange={setOwner} placeholder="Any owner" /></div>
         </div>
         {sel.size > 0 && (
           <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 bg-navy-50 border-b border-navy-100 text-sm">

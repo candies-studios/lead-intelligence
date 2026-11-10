@@ -5,7 +5,8 @@ import { supabase, callFn } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useAsync, q, fmtDateTime } from '@/lib/hooks';
 import { CHANNEL_LABEL, DEPT_LABEL } from '@/lib/constants';
-import { Alert, Badge, Button, Card, EmptyState, Field, Input, PageHeader, Select, Spinner, Textarea, toast, EmailStatusBadge } from '@/components/ui';
+import { Alert, Badge, Button, Card, EmptyState, Field, Input, PageHeader, Spinner, Textarea, toast, EmailStatusBadge, MultiSelect } from '@/components/ui';
+import { toOptions } from '@/lib/options';
 
 export default function Outreach() {
   const [params] = useSearchParams();
@@ -99,18 +100,18 @@ function DraftCard({ d, contact, leadId, onChange }: { d: any; contact: any; lea
 
 function AllDrafts() {
   const { demo } = useAuth();
-  const [status, setStatus] = useState('draft');
+  const [status, setStatus] = useState<string[]>(['draft']);
   const list = useAsync(() => {
     let x = supabase.from('outreach_messages').select('id, channel, status, subject, body, created_at, lead_id, contact:contacts!inner(id, full_name, title, is_demo, company:companies(name))').eq('contact.is_demo', demo).order('created_at', { ascending: false }).limit(300);
-    if (status) x = x.eq('status', status);
+    if (status.length) x = x.in('status', status);
     return q(x);
-  }, [demo, status]);
+  }, [demo, status.join()]);
   const rows = (list.data as any[]) ?? [];
   return (
     <>
       <PageHeader title="Outreach" subtitle="Every AI draft must be reviewed and approved by a person. Nothing is sent automatically; mark messages as sent once you have sent them from your own mailbox or LinkedIn." />
       <Card pad={false}>
-        <div className="p-4 border-b border-slate-100 flex gap-2"><Select className="w-44" value={status} onChange={e => setStatus(e.target.value)}><option value="">All statuses</option><option value="draft">Drafts</option><option value="approved">Approved</option><option value="sent">Sent</option><option value="archived">Archived</option></Select></div>
+        <div className="p-4 border-b border-slate-100 flex gap-2"><div className="w-56"><MultiSelect options={toOptions(['draft', 'approved', 'sent', 'archived'], { draft: 'Drafts', approved: 'Approved', sent: 'Sent', archived: 'Archived' })} value={status} onChange={setStatus} placeholder="All statuses" /></div></div>
         {list.loading ? <Spinner /> : !rows.length ? <EmptyState icon={<Send className="h-5 w-5" />} title="Nothing here">Open a lead or contact and click “Generate Personalised Outreach”.</EmptyState> : (
           <ul className="divide-y divide-slate-100">{rows.map(m => (
             <li key={m.id}><Link to={`/outreach?contact=${m.contact.id}${m.lead_id ? `&lead=${m.lead_id}` : ''}`} className="flex gap-4 px-5 py-3 hover:bg-slate-50">

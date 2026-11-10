@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import { Loader2, X, Check, AlertTriangle, Info } from 'lucide-react';
 import { useEffect, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { EMAIL_STATUS_LABEL, STAGE_LABEL, type Stage } from '@/lib/constants';
+import { Dropdown, optionsFromChildren } from './Dropdown';
 
 export const cx = clsx;
 
@@ -59,7 +60,19 @@ export function Field({ label, hint, children, className }: { label: string; hin
 }
 const inputCls = 'w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm placeholder:text-ink-faint focus:border-navy-400 focus:ring-2 focus:ring-navy-100 outline-none transition';
 export const Input = (p: InputHTMLAttributes<HTMLInputElement>) => <input {...p} className={cx(inputCls, p.className)} />;
-export const Select = ({ children, ...p }: SelectHTMLAttributes<HTMLSelectElement>) => <select {...p} className={cx(inputCls, 'pr-8', p.className)}>{children}</select>;
+/** Single-choice dropdown in the app-wide design. Accepts <option>/<optgroup> children like a native select. */
+export function Select({ children, value, onChange, className, disabled, placeholder, ...rest }: SelectHTMLAttributes<HTMLSelectElement> & { placeholder?: string }) {
+  const options = optionsFromChildren(children);
+  return (
+    <div className={cx('relative', className?.match(/\bw-\S+/g)?.join(' ') ?? 'w-full')}>
+      <Dropdown options={options} value={String(value ?? '')} disabled={disabled} placeholder={placeholder}
+        aria-label={(rest as any)['aria-label']}
+        className={cx(className?.match(/\bh-\S+/g)?.join(' '))}
+        onChange={v => onChange?.({ target: { value: v }, currentTarget: { value: v } } as any)} />
+    </div>
+  );
+}
+export { MultiSelect } from './Dropdown';
 export const Textarea = (p: TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...p} className={cx(inputCls, 'h-auto py-2 leading-relaxed', p.className)} />;
 
 export function ChipSelect<T extends string>({ options, value, onChange, labels }: { options: readonly T[]; value: T[]; onChange: (v: T[]) => void; labels?: Record<string, string> }) {

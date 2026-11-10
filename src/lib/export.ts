@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 import { DEPT_LABEL, EMAIL_STATUS_LABEL, SENIORITY_LABEL, STAGE_LABEL, providerLabel } from './constants';
 
 export type ExportScope = 'companies' | 'contacts' | 'qualified' | 'priority_a' | 'country' | 'industry' | 'campaign' | 'decision_makers';
-export interface ExportOptions { scope: ExportScope; format: 'xlsx' | 'csv'; demo: boolean; country?: string; industry?: string; campaignId?: string }
+export interface ExportOptions { scope: ExportScope; format: 'xlsx' | 'csv'; demo: boolean; countries?: string[]; industries?: string[]; campaignIds?: string[] }
 
 async function all<T>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>): Promise<T[]> {
   const out: T[] = []; const size = 1000;
@@ -39,10 +39,10 @@ export async function buildRows(o: ExportOptions): Promise<{ name: string; rows:
   let query = supabase.from('leads').select('*, company:companies(*), contact:contacts(*, contact_sources(url)), campaign:campaigns(name), assignee:users!leads_assigned_to_fkey(full_name)').eq('is_demo', o.demo);
   if (o.scope === 'qualified') query = query.not('stage', 'in', '(newly_discovered,research_pending,not_relevant,lost)').gte('score', 50);
   if (o.scope === 'priority_a') query = query.eq('priority', 'A');
-  if (o.scope === 'campaign' && o.campaignId) query = query.eq('campaign_id', o.campaignId);
+  if (o.scope === 'campaign' && o.campaignIds?.length) query = query.in('campaign_id', o.campaignIds);
   let rows = await all<any>((a, b) => query.order('score', { ascending: false, nullsFirst: false }).range(a, b));
-  if (o.scope === 'country' && o.country) rows = rows.filter(r => r.company?.country_code === o.country);
-  if (o.scope === 'industry' && o.industry) rows = rows.filter(r => r.company?.industry === o.industry || r.company?.industry_segment === o.industry);
+  if (o.scope === 'country' && o.countries?.length) rows = rows.filter(r => o.countries!.includes(r.company?.country_code));
+  if (o.scope === 'industry' && o.industries?.length) rows = rows.filter(r => o.industries!.includes(r.company?.industry) || o.industries!.includes(r.company?.industry_segment));
   return { name: 'Leads', rows: rows.map(l => ({
     'Score': l.score, 'Priority': l.priority, 'Stage': STAGE_LABEL[l.stage as keyof typeof STAGE_LABEL],
     'Company': l.company?.name, 'Website': l.company?.website, 'Industry': l.company?.industry, 'Segment': l.company?.industry_segment,

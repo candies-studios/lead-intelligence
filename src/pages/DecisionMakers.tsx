@@ -5,7 +5,8 @@ import { supabase, callFn } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useAsync, useRefData, q, fmtDate } from '@/lib/hooks';
 import { DEPARTMENTS, DEPT_LABEL, EMAIL_STATUS_LABEL, SENIORITIES, SENIORITY_LABEL, providerLabel } from '@/lib/constants';
-import { Alert, Badge, Button, Card, ConfidenceBadge, EmailStatusBadge, EmptyState, Input, PageHeader, Select, Spinner, Table, Td, Th, Tabs, toast } from '@/components/ui';
+import { Alert, Badge, Button, Card, ConfidenceBadge, EmailStatusBadge, EmptyState, Input, PageHeader, Spinner, Table, Td, Th, Tabs, toast, MultiSelect } from '@/components/ui';
+import { countryOptions, toOptions } from '@/lib/options';
 import { FindContactsModal } from './CompanyProfile';
 
 export default function DecisionMakers() {
@@ -21,29 +22,29 @@ export default function DecisionMakers() {
 
 function ContactsTable() {
   const { demo } = useAuth(); const ref = useRefData();
-  const [text, setText] = useState(''); const [dept, setDept] = useState(''); const [sen, setSen] = useState(''); const [country, setCountry] = useState('');
-  const [es, setEs] = useState(''); const [conf, setConf] = useState(''); const [dmOnly, setDmOnly] = useState(true);
+  const [text, setText] = useState(''); const [dept, setDept] = useState<string[]>([]); const [sen, setSen] = useState<string[]>([]); const [country, setCountry] = useState<string[]>([]);
+  const [es, setEs] = useState<string[]>([]); const [conf, setConf] = useState<string[]>([]); const [dmOnly, setDmOnly] = useState(true);
   const list = useAsync(() => {
     let x = supabase.from('contacts').select('*, company:companies!inner(id, name, country_code, industry_segment), contact_sources(url)').eq('is_demo', demo).order('designation_priority', { nullsFirst: false }).limit(500);
-    if (dept) x = x.eq('department', dept);
-    if (sen) x = x.eq('seniority', sen);
+    if (dept.length) x = x.in('department', dept);
+    if (sen.length) x = x.in('seniority', sen);
     else if (dmOnly) x = x.in('seniority', ['cxo', 'vp', 'director', 'head', 'senior']);
-    if (country) x = x.eq('company.country_code', country);
-    if (es) x = x.eq('email_status', es);
-    if (conf) x = x.eq('confidence', conf);
+    if (country.length) x = x.in('company.country_code', country);
+    if (es.length) x = x.in('email_status', es);
+    if (conf.length) x = x.in('confidence', conf);
     if (text) x = x.or(`full_name.ilike.%${text}%,title.ilike.%${text}%`);
     return q(x);
-  }, [demo, dept, sen, country, es, conf, text, dmOnly]);
+  }, [demo, dept.join(), sen.join(), country.join(), es.join(), conf.join(), text, dmOnly]);
   const rows = (list.data as any[]) ?? [];
   return (
     <Card pad={false}>
       <div className="flex flex-wrap gap-2 p-4 border-b border-slate-100 items-center">
         <Input placeholder="Name or designation…" value={text} onChange={e => setText(e.target.value)} className="max-w-xs" />
-        <Select value={dept} onChange={e => setDept(e.target.value)} className="w-52"><option value="">All functions</option>{DEPARTMENTS.map(d => <option key={d} value={d}>{DEPT_LABEL[d]}</option>)}</Select>
-        <Select value={sen} onChange={e => setSen(e.target.value)} className="w-36"><option value="">All seniority</option>{SENIORITIES.map(s => <option key={s} value={s}>{SENIORITY_LABEL[s]}</option>)}</Select>
-        <Select value={country} onChange={e => setCountry(e.target.value)} className="w-40"><option value="">All countries</option>{ref.data?.countries.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}</Select>
-        <Select value={es} onChange={e => setEs(e.target.value)} className="w-44"><option value="">Any email status</option>{Object.entries(EMAIL_STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select>
-        <Select value={conf} onChange={e => setConf(e.target.value)} className="w-36"><option value="">Any confidence</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></Select>
+        <div className="w-52"><MultiSelect options={toOptions(DEPARTMENTS, DEPT_LABEL)} value={dept} onChange={setDept} placeholder="All functions" /></div>
+        <div className="w-40"><MultiSelect options={toOptions(SENIORITIES, SENIORITY_LABEL)} value={sen} onChange={setSen} placeholder={dmOnly ? 'Decision-maker levels' : 'All seniority'} /></div>
+        <div className="w-44"><MultiSelect options={countryOptions(ref.data, false)} value={country} onChange={setCountry} placeholder="All countries" /></div>
+        <div className="w-48"><MultiSelect options={toOptions(Object.keys(EMAIL_STATUS_LABEL), EMAIL_STATUS_LABEL)} value={es} onChange={setEs} placeholder="Any email status" /></div>
+        <div className="w-40"><MultiSelect options={toOptions(['high', 'medium', 'low'], { high: 'High', medium: 'Medium', low: 'Low' })} value={conf} onChange={setConf} placeholder="Any confidence" /></div>
         <label className="text-xs text-ink-soft flex items-center gap-1.5"><input type="checkbox" checked={dmOnly} onChange={e => setDmOnly(e.target.checked)} className="accent-navy-700" />Decision-makers only</label>
       </div>
       {list.loading ? <Spinner /> : list.error ? <div className="p-4"><Alert tone="error">{list.error}</Alert></div> : !rows.length ? <EmptyState icon={<UserSearch className="h-5 w-5" />} title="No decision-makers match">Open a company and use “Find decision-makers”, or run a campaign.</EmptyState> : (

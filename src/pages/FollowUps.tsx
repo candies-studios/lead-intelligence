@@ -4,17 +4,18 @@ import { CalendarClock, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useAsync, q, fmtDateTime } from '@/lib/hooks';
-import { Badge, Button, Card, EmptyState, PageHeader, Select, Spinner, Table, Td, Th, toast, cx } from '@/components/ui';
+import { Badge, Button, Card, EmptyState, PageHeader, Select, Spinner, Table, Td, Th, toast, cx, MultiSelect } from '@/components/ui';
+import { toOptions } from '@/lib/options';
 
 export default function FollowUps() {
   const { demo, profile } = useAuth();
-  const [scope, setScope] = useState<'mine' | 'all'>('mine'); const [status, setStatus] = useState('open');
+  const [scope, setScope] = useState<'mine' | 'all'>('mine'); const [status, setStatus] = useState<string[]>(['open']);
   const list = useAsync(() => {
     let x = supabase.from('follow_ups').select('*, assignee:users!follow_ups_assigned_to_fkey(full_name), lead:leads!inner(id, stage, is_demo, company:companies(name), contact:contacts(full_name, title))').eq('lead.is_demo', demo).order('due_at').limit(500);
-    if (status) x = x.eq('status', status);
+    if (status.length) x = x.in('status', status);
     if (scope === 'mine') x = x.eq('assigned_to', profile!.id);
     return q(x);
-  }, [demo, scope, status, profile?.id]);
+  }, [demo, scope, status.join(), profile?.id]);
   const rows = (list.data as any[]) ?? [];
   const now = new Date(); const endToday = new Date(); endToday.setHours(23, 59, 59);
   const overdue = rows.filter(r => r.status === 'open' && new Date(r.due_at) < now).length;
@@ -27,7 +28,7 @@ export default function FollowUps() {
     <>
       <PageHeader title="Follow-ups" subtitle={<>{overdue > 0 && <span className="text-red-600 font-medium">{overdue} overdue · </span>}{today} due today</>}
         actions={<><Select className="w-36" value={scope} onChange={e => setScope(e.target.value as any)}><option value="mine">Assigned to me</option><option value="all">Whole team</option></Select>
-          <Select className="w-32" value={status} onChange={e => setStatus(e.target.value)}><option value="open">Open</option><option value="done">Done</option><option value="cancelled">Cancelled</option><option value="">All</option></Select></>} />
+          <div className="w-48"><MultiSelect options={toOptions(['open', 'done', 'cancelled'], { open: 'Open', done: 'Done', cancelled: 'Cancelled' })} value={status} onChange={setStatus} placeholder="All statuses" /></div></>} />
       <Card pad={false}>
         {list.loading ? <Spinner /> : !rows.length ? <EmptyState icon={<CalendarClock className="h-5 w-5" />} title="No follow-ups">Schedule reminders from any lead page.</EmptyState> : (
           <Table><thead><tr><Th>Due</Th><Th>Task</Th><Th>Lead</Th><Th>Assigned</Th><Th></Th></tr></thead>

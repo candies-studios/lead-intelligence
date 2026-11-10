@@ -8,13 +8,13 @@ import { DEPARTMENTS, DEPT_LABEL, ROLES, ROLE_LABEL, SENIORITIES, SENIORITY_LABE
 import { Alert, Badge, Button, Card, Field, Input, PageHeader, Select, Spinner, Table, Td, Th, Tabs, Textarea, toast } from '@/components/ui';
 import { DEFAULT_WEIGHTS } from '../../supabase/functions/_shared/scoring';
 
-type Tab = 'profile' | 'users' | 'scoring' | 'industries' | 'countries' | 'designations' | 'privacy' | 'duplicates' | 'ai' | 'audit' | 'usage';
+type Tab = 'profile' | 'users' | 'scoring' | 'industries' | 'countries' | 'designations' | 'privacy' | 'duplicates' | 'ai' | 'automation' | 'audit' | 'usage';
 
 export default function Settings() {
   const { can } = useAuth(); const admin = can(...ADMINS); const manager = can(...MANAGERS);
   const [tab, setTab] = useState<Tab>('profile');
   const tabs: { id: Tab; label: string }[] = [{ id: 'profile', label: 'My profile' }, { id: 'privacy', label: 'Privacy & suppression' },
-    ...(admin ? [{ id: 'users' as Tab, label: 'Users & roles' }, { id: 'scoring' as Tab, label: 'Lead scoring' }, { id: 'industries' as Tab, label: 'Industries' }, { id: 'countries' as Tab, label: 'Countries' }, { id: 'designations' as Tab, label: 'Designations' }, { id: 'duplicates' as Tab, label: 'Duplicates' }, { id: 'ai' as Tab, label: 'AI & outreach' }, { id: 'audit' as Tab, label: 'Audit log' }] : []),
+    ...(admin ? [{ id: 'users' as Tab, label: 'Users & roles' }, { id: 'scoring' as Tab, label: 'Lead scoring' }, { id: 'industries' as Tab, label: 'Industries' }, { id: 'countries' as Tab, label: 'Countries' }, { id: 'designations' as Tab, label: 'Designations' }, { id: 'duplicates' as Tab, label: 'Duplicates' }, { id: 'automation' as Tab, label: 'Automation' }, { id: 'ai' as Tab, label: 'AI & outreach' }, { id: 'audit' as Tab, label: 'Audit log' }] : []),
     ...(manager ? [{ id: 'usage' as Tab, label: 'Usage' }] : [])];
   return (
     <>
@@ -22,7 +22,7 @@ export default function Settings() {
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
       {tab === 'profile' && <Profile />}{tab === 'users' && <Users />}{tab === 'scoring' && <Scoring />}{tab === 'industries' && <Industries />}
       {tab === 'countries' && <Countries />}{tab === 'designations' && <Designations />}{tab === 'privacy' && <Privacy />}{tab === 'duplicates' && <Duplicates />}
-      {tab === 'ai' && <AiSettings />}{tab === 'audit' && <Audit />}{tab === 'usage' && <Usage />}
+      {tab === 'ai' && <AiSettings />}{tab === 'automation' && <AutomationSettings />}{tab === 'audit' && <Audit />}{tab === 'usage' && <Usage />}
     </>
   );
 }
@@ -241,6 +241,53 @@ function AiSettings() {
       <Field label="Outreach defaults (JSON)"><Textarea rows={5} className="font-mono text-xs" value={defaults} onChange={e => setDefaults(e.target.value)} /></Field>
       <Button variant="primary" onClick={save}>Save</Button>
     </div></Card>
+  );
+}
+
+function AutomationSettings() {
+  const s = useAsync(() => q(supabase.from('app_settings').select('value').eq('key', 'automation').maybeSingle()), []);
+  const [v, setV] = useState<any>(null); const [busy, setBusy] = useState(false); const [run, setRun] = useState<any>(null);
+  useEffect(() => { if (s.data) setV({ enabled: true, company_name: 'World of Trade', physical_address: '', booking_link: '', send_window_start: '09:30', send_window_end: '17:30', weekdays_only: true, default_timezone: 'Asia/Kolkata', auto_reply_meetings: true, auto_reply_not_interested: true, min_days_between_touches: 3, max_sends_per_tick: 15, ...(s.data as any).value }); else if (!s.loading) setV({ enabled: true }); }, [s.data, s.loading]);
+  if (!v) return <Spinner />;
+  const set = (k: string) => (e: any) => setV({ ...v, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.type === 'number' ? +e.target.value : e.target.value });
+  const save = async () => { setBusy(true); const { error } = await supabase.from('app_settings').upsert({ key: 'automation', value: v }); setBusy(false); error ? toast.error(error.message) : toast.success('Saved'); };
+  const runNow = async () => { setBusy(true); try { setRun(await callFn('automation', { action: 'run_now' })); } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); } };
+  return (
+    <div className="grid lg:grid-cols-2 gap-4">
+      <Card title="Automated outreach">
+        <div className="space-y-3">
+          <label className="flex items-start gap-2 text-sm font-medium"><input type="checkbox" className="accent-navy-700 h-4 w-4 mt-0.5" checked={!!v.enabled} onChange={set('enabled')} /><span>Automation switched on<span className="block text-xs font-normal text-ink-faint">Master switch — turning it off stops all sending and reply handling immediately.</span></span></label>
+          <Field label="Company name in emails"><Input value={v.company_name ?? ''} onChange={set('company_name')} /></Field>
+          <Field label="Company postal address *" hint="Required in the footer of commercial emails (CAN-SPAM, PECR and similar laws)."><Input value={v.physical_address ?? ''} onChange={set('physical_address')} placeholder="Street, city, postcode, country" /></Field>
+          <Field label="Default booking link" hint="Sent automatically when a prospect asks to meet (Calendly, Google Calendar appointment page, etc.)."><Input value={v.booking_link ?? ''} onChange={set('booking_link')} placeholder="https://" /></Field>
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Send from (local)"><Input type="time" value={v.send_window_start} onChange={set('send_window_start')} /></Field>
+            <Field label="Send until (local)"><Input type="time" value={v.send_window_end} onChange={set('send_window_end')} /></Field>
+            <Field label="Fallback time zone"><Input value={v.default_timezone} onChange={set('default_timezone')} /></Field>
+          </div>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-navy-700" checked={!!v.weekdays_only} onChange={set('weekdays_only')} />Working days only (Gulf countries use a Fri–Sat weekend)</label>
+          <p className="text-[11px] text-ink-faint">Emails are sent in each recipient’s local time zone, based on their country.</p>
+        </div>
+      </Card>
+      <Card title="Reply handling">
+        <div className="space-y-3 text-sm">
+          <label className="flex items-start gap-2"><input type="checkbox" className="accent-navy-700 mt-1" checked={!!v.auto_reply_meetings} onChange={set('auto_reply_meetings')} /><span>Automatically send the booking link when someone asks to meet or says they’re interested</span></label>
+          <label className="flex items-start gap-2"><input type="checkbox" className="accent-navy-700 mt-1" checked={!!v.auto_reply_not_interested} onChange={set('auto_reply_not_interested')} /><span>Send a short, polite close when someone says they’re not interested</span></label>
+          <ul className="text-xs text-ink-soft list-disc pl-5 space-y-1">
+            <li>Unsubscribe requests → added to suppression list, never contacted again (no reply sent).</li>
+            <li>Out-of-office → follow-ups paused until they’re back.</li>
+            <li>Bounces → email marked invalid, sequence stopped.</li>
+            <li>Questions, referrals, anything else → AI drafts a reply for your one-click approval in the Inbox.</li>
+          </ul>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Min days between emails to one person"><Input type="number" min={1} value={v.min_days_between_touches} onChange={set('min_days_between_touches')} /></Field>
+            <Field label="Max emails per run (every 5 min)"><Input type="number" min={1} max={50} value={v.max_sends_per_tick} onChange={set('max_sends_per_tick')} /></Field>
+          </div>
+          <div className="flex gap-2 pt-2"><Button variant="primary" loading={busy} onClick={save}>Save</Button><Button loading={busy} onClick={runNow}>Run automation now</Button></div>
+          {run && <Alert tone={run.errors?.length ? 'warn' : 'success'} title={run.skipped ?? 'Run complete'}>Enrolled {run.enrolled} · sent {run.sent} · to-dos {run.tasks} · replies {run.received} · auto-replies {run.autoReplied} · drafts {run.drafts}{run.errors?.map((e: string, i: number) => <div key={i} className="text-xs mt-1">• {e}</div>)}{run.logs?.slice(-8).map((l: string, i: number) => <div key={'l' + i} className="text-xs text-ink-soft">{l}</div>)}</Alert>}
+        </div>
+      </Card>
+    </div>
   );
 }
 

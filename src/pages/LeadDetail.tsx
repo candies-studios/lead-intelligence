@@ -16,6 +16,8 @@ export default function LeadDetail() {
   const comms = useAsync(() => q(supabase.from('communications').select('*, author:users(full_name)').eq('lead_id', id!).order('occurred_at', { ascending: false })), [id]);
   const fups = useAsync(() => q(supabase.from('follow_ups').select('*, assignee:users!follow_ups_assigned_to_fkey(full_name)').eq('lead_id', id!).order('due_at')), [id]);
   const drafts = useAsync(() => q(supabase.from('outreach_messages').select('id, channel, status, subject, created_at').eq('lead_id', id!).order('created_at', { ascending: false })), [id]);
+  const emails = useAsync(() => q(supabase.from('email_messages').select('*').eq('lead_id', id!).in('status', ['sent', 'received', 'pending_approval', 'failed']).order('created_at')), [id]);
+  const enrol = useAsync(() => q(supabase.from('enrollments').select('*, sequence:sequences(name, steps, status)').eq('lead_id', id!).order('created_at', { ascending: false })), [id]);
   const [rescoring, setRescoring] = useState(false); const [logOpen, setLogOpen] = useState(false); const [fuOpen, setFuOpen] = useState(false);
 
   if (lead.loading) return <Spinner />;
@@ -43,6 +45,34 @@ export default function LeadDetail() {
               {l.stage === 'lost' && <Field label="Lost reason" className="sm:col-span-3"><Input defaultValue={l.lost_reason ?? ''} onBlur={e => e.target.value && patch({ lost_reason: e.target.value })} /></Field>}
             </div>
           </Card>
+
+          {((enrol.data as any[])?.length > 0 || (emails.data as any[])?.length > 0) && (
+            <Card title="Automated email conversation" pad={false}
+              action={(enrol.data as any[])?.find(e => ['active', 'paused'].includes(e.status)) && (() => { const e = (enrol.data as any[]).find(x => ['active', 'paused'].includes(x.status)); return (
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={async () => { await supabase.from('enrollments').update(e.status === 'active' ? { status: 'paused' } : { status: 'active', next_run_at: new Date().toISOString() }).eq('id', e.id); enrol.reload(); }}>{e.status === 'active' ? 'Pause sequence' : 'Resume sequence'}</Button>
+                  <Button size="sm" variant="danger" onClick={async () => { if (!confirm('Stop the automated sequence for this lead?')) return; await supabase.from('enrollments').update({ status: 'stopped', stop_reason: 'Stopped manually', next_run_at: null }).eq('id', e.id); enrol.reload(); }}>Stop</Button>
+                </div>); })()}>
+              {(enrol.data as any[])?.map(e => (
+                <div key={e.id} className="px-5 py-2.5 border-b border-slate-100 text-xs flex flex-wrap gap-2 items-center">
+                  <Badge tone={e.status === 'active' ? 'blue' : e.status === 'replied' ? 'green' : ['bounced', 'unsubscribed', 'failed'].includes(e.status) ? 'red' : 'slate'}>{e.status}</Badge>
+                  <span>Sequence “{e.sequence?.name}” · step {Math.min(e.current_step + 1, e.sequence?.steps?.length ?? 1)} of {e.sequence?.steps?.length}</span>
+                  {e.status === 'active' && <span className="text-ink-soft">· next send {fmtDateTime(e.next_run_at)}</span>}
+                  {e.stop_reason && <span className="text-ink-faint">· {e.stop_reason}</span>}
+                </div>))}
+              <ul className="divide-y divide-slate-100">{((emails.data as any[]) ?? []).map(m => (
+                <li key={m.id} className={`px-5 py-3 text-sm ${m.direction === 'inbound' ? 'bg-emerald-50/40' : ''}`}>
+                  <div className="flex flex-wrap items-center gap-2 text-xs mb-1">
+                    <Badge tone={m.direction === 'inbound' ? 'green' : m.status === 'pending_approval' ? 'amber' : m.status === 'failed' ? 'red' : 'blue'}>{m.direction === 'inbound' ? '← Reply' : m.status === 'pending_approval' ? 'Draft awaiting approval' : m.status === 'failed' ? 'Failed' : m.kind === 'auto_reply' ? '→ Auto-reply' : m.kind === 'approved_reply' ? '→ Approved reply' : `→ Step ${(m.step ?? 0) + 1}`}</Badge>
+                    <span className="font-medium">{m.subject}</span><span className="ml-auto text-ink-faint">{fmtDateTime(m.sent_at ?? m.received_at ?? m.created_at)}</span>
+                  </div>
+                  {m.ai_summary && m.direction === 'inbound' && <div className="text-xs text-ink-soft mb-1">AI: {m.ai_summary}{m.auto_action ? ` → ${m.auto_action}` : ''}</div>}
+                  {m.error && <div className="text-xs text-red-600">{m.error}</div>}
+                  <details><summary className="text-xs text-navy-600 cursor-pointer">Show message</summary><pre className="mt-2 whitespace-pre-wrap font-sans text-sm text-ink-soft">{m.body_text}</pre></details>
+                </li>))}</ul>
+              {(emails.data as any[])?.some(m => m.status === 'pending_approval') && <div className="px-5 py-2 border-t border-slate-100"><Link to="/inbox" className="text-xs text-navy-600">Approve the draft in the Inbox →</Link></div>}
+            </Card>
+          )}
 
           <Card title="Communication history" pad={false} action={<Button size="sm" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setLogOpen(true)}>Log activity</Button>}>
             {!(comms.data as any[])?.length ? <p className="p-5 text-sm text-ink-soft">No activity recorded. Log emails, LinkedIn messages, calls and meetings here — the app never sends anything without you.</p> : (

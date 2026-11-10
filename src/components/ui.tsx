@@ -59,7 +59,9 @@ export function Field({ label, hint, children, className }: { label: string; hin
   );
 }
 const inputCls = 'w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm placeholder:text-ink-faint focus:border-navy-400 focus:ring-2 focus:ring-navy-100 outline-none transition';
-export const Input = (p: InputHTMLAttributes<HTMLInputElement>) => <input {...p} className={cx(inputCls, p.className)} />;
+/** A width class passed in (w-20, w-72…) replaces the default full width instead of fighting it. */
+const withWidth = (base: string, extra?: string) => cx(/(^|\s)w-/.test(extra ?? '') ? base.replace('w-full ', '') : base, extra);
+export const Input = (p: InputHTMLAttributes<HTMLInputElement>) => <input {...p} className={withWidth(inputCls, p.className)} />;
 /** Single-choice dropdown in the app-wide design. Accepts <option>/<optgroup> children like a native select. */
 export function Select({ children, value, onChange, className, disabled, placeholder, ...rest }: SelectHTMLAttributes<HTMLSelectElement> & { placeholder?: string }) {
   const options = optionsFromChildren(children);
@@ -73,7 +75,7 @@ export function Select({ children, value, onChange, className, disabled, placeho
   );
 }
 export { MultiSelect } from './Dropdown';
-export const Textarea = (p: TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...p} className={cx(inputCls, 'h-auto py-2 leading-relaxed', p.className)} />;
+export const Textarea = (p: TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...p} className={cx(withWidth(inputCls, p.className), 'h-auto py-2 leading-relaxed')} />;
 
 export function ChipSelect<T extends string>({ options, value, onChange, labels }: { options: readonly T[]; value: T[]; onChange: (v: T[]) => void; labels?: Record<string, string> }) {
   return (

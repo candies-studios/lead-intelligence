@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
-import { LayoutDashboard, Building2, UserSearch, Sparkles, Database, Rocket, Send, CalendarClock, BarChart3, Plug, Settings, LogOut, Menu, X, FlaskConical } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { LayoutDashboard, Building2, UserSearch, Sparkles, Database, Rocket, Send, CalendarClock, BarChart3, Plug, Settings, LogOut, Menu, X, FlaskConical, Inbox as InboxIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { ROLE_LABEL } from '@/lib/constants';
@@ -13,6 +13,7 @@ const NAV = [
   { to: '/research', label: 'AI Research', icon: Sparkles },
   { to: '/leads', label: 'Lead Database', icon: Database },
   { to: '/campaigns', label: 'Campaigns', icon: Rocket },
+  { to: '/inbox', label: 'Inbox', icon: InboxIcon },
   { to: '/outreach', label: 'Outreach', icon: Send },
   { to: '/follow-ups', label: 'Follow-ups', icon: CalendarClock },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
@@ -24,6 +25,13 @@ export default function Layout() {
   const { profile, demo, setDemo } = useAuth();
   const [open, setOpen] = useState(false);
   const nav = useNavigate();
+  const [attention, setAttention] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const load = () => supabase.rpc('inbox_attention_count').then(({ data }) => { if (alive && typeof data === 'number') setAttention(data); });
+    load(); const t = setInterval(load, 60000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
   return (
     <div className="min-h-screen flex">
       <aside className={cx('fixed inset-y-0 left-0 z-40 w-64 bg-navy-950 text-navy-100 flex flex-col transition-transform lg:translate-x-0', open ? 'translate-x-0' : '-translate-x-full')}>
@@ -36,7 +44,7 @@ export default function Layout() {
             <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setOpen(false)}
               className={({ isActive }) => cx('flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition',
                 isActive ? 'bg-white/10 text-white' : 'text-navy-200/80 hover:bg-white/5 hover:text-white')}>
-              <n.icon className="h-4 w-4 opacity-80" />{n.label}
+              <n.icon className="h-4 w-4 opacity-80" />{n.label}{n.to === '/inbox' && attention > 0 && <span className="ml-auto rounded-full bg-amber-400 text-navy-950 text-[10px] font-bold px-1.5 min-w-[18px] text-center">{attention}</span>}
             </NavLink>
           ))}
         </nav>

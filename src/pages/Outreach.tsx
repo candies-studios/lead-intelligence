@@ -109,7 +109,7 @@ function AllDrafts() {
   const rows = (list.data as any[]) ?? [];
   return (
     <>
-      <PageHeader title="Outreach" subtitle="Every AI draft must be reviewed and approved by a person. Nothing is sent automatically; mark messages as sent once you have sent them from your own mailbox or LinkedIn." />
+      <PageHeader title="Outreach" subtitle={<>One-off personalised drafts for individual contacts. For fully automated email sequences, follow-ups and reply handling, open a campaign → <b>Email automation</b>; replies arrive in the <Link className="underline" to="/inbox">Inbox</Link>.</>} />
       <Card pad={false}>
         <div className="p-4 border-b border-slate-100 flex gap-2"><div className="w-56"><MultiSelect options={toOptions(['draft', 'approved', 'sent', 'archived'], { draft: 'Drafts', approved: 'Approved', sent: 'Sent', archived: 'Archived' })} value={status} onChange={setStatus} placeholder="All statuses" /></div></div>
         {list.loading ? <Spinner /> : !rows.length ? <EmptyState icon={<Send className="h-5 w-5" />} title="Nothing here">Open a lead or contact and click “Generate Personalised Outreach”.</EmptyState> : (

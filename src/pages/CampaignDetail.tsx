@@ -7,6 +7,7 @@ import { DEPT_LABEL, SENIORITY_LABEL } from '@/lib/constants';
 import { Alert, Badge, Button, Card, PageHeader, ScoreBadge, Spinner, Stat, Table, Td, Th, toast, cx } from '@/components/ui';
 import { STATUS_TONE } from './Campaigns';
 import { ExportButton } from '@/components/ExportModal';
+import SequencePanel from '@/components/SequencePanel';
 
 export default function CampaignDetail() {
   const { id } = useParams();
@@ -74,6 +75,8 @@ export default function CampaignDetail() {
         <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden"><div className={cx('h-full rounded-full transition-all', c.status === 'completed' ? 'bg-emerald-500' : 'bg-navy-600')} style={{ width: `${c.status === 'completed' ? 100 : pct}%` }} /></div>
         <span className="tabular-nums text-ink-soft w-56 text-right">{running ? (p.companies_found < c.target_companies && !p.discovery_exhausted ? `Discovering (page ${p.discovery_page ?? 1})…` : 'Researching companies…') : c.status === 'completed' ? 'Completed' : c.status}</span>
       </div><p className="text-[11px] text-ink-faint mt-2">Progress reflects real server-side work recorded in the database. Keep this page open while the campaign runs (or schedule the runner with pg_cron — see README).</p></Card>
+
+      <div className="mb-4"><SequencePanel campaign={c} /></div>
 
       <div className="grid xl:grid-cols-[1fr_420px] gap-4">
         <Card title={`Companies (${rows.length})`} pad={false}>

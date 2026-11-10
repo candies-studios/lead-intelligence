@@ -153,12 +153,27 @@ The migrations were also checked against PostgreSQL 17 with a Supabase auth stub
 
 ---
 
+
+## Automated outreach (Gmail)
+Approve an email sequence once per campaign; the `automation` function (run every 5 minutes by pg_cron) then:
+1. **Enrols** qualifying leads (campaign, priority, *verified* email only, not suppressed, not contacted in the last 14 days, one active sequence per person).
+2. **Sends** due steps from a connected Gmail / Google Workspace mailbox in each recipient's local business hours (Gulf Fri–Sat weekend aware), with warm-up limits, a grounded AI opening line, a compliant footer (postal address + signed unsubscribe link + `List-Unsubscribe` one-click headers). Follow-ups reply in the same thread. LinkedIn/WhatsApp steps become pre-written to-dos.
+3. **Reads replies** (Gmail history API), ignores unrelated mail, and classifies with rules first (bounce, out-of-office, unsubscribe) then AI. Meeting requests get the booking link automatically; not-interested gets a polite close; questions/referrals get an AI draft that waits in **Inbox** for one-click approval.
+4. **Stops** sequences on reply, bounce, unsubscribe, do-not-contact, or when a lead moves to meeting/proposal/won/lost (database triggers).
+
+Setup: see `SETUP_GUIDE.md` in the release package (Google OAuth client, secrets `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `CRON_SECRET`, `APP_URL`; functions `gmail-oauth`, `unsubscribe`, `automation` deployed with JWT verification off; pg_cron schedule).
+
+### Automation tests
+- `npm test` — includes MIME building, header-injection protection, templates, time zones/send windows, warm-up, reply rules, unsubscribe token signing.
+- `deno test -A supabase/functions/_tests/automation_e2e_test.ts` — full scenario against real Postgres + PostgREST (port 3011) with Gmail and Gemini mocked: send window, warm-up cap, no double-sends, meeting auto-reply in thread, pricing question → approval draft, unsubscribe, out-of-office reschedule, threaded follow-ups, LinkedIn to-do, stage-change stop, bounce, unrelated mail ignored, kill switch.
+
 ## Provider notes and limitations (please read)
 - **Apollo:** people search returns names and titles without emails. Revealing emails uses `people/match` and consumes credits, so it only runs when “Enrich & verify emails” is enabled. Access to API search endpoints depends on your Apollo plan. The client tries `mixed_people/api_search` first and falls back to `mixed_people/search`.
 - **People Data Labs:** work emails appear only if your plan includes them. Industry filters use PDL's canonical industry values (see `pdl.ts`).
 - **Google Programmable Search:** needs an API key and an engine ID (`cx`). Check Google's current availability terms for whole-web search engines. If it's unavailable, Claude web search covers signals instead.
 - **LinkedIn:** never scraped. A LinkedIn URL is stored only when a provider returned it or it appeared verbatim in authorised search results.
-- **Sending email:** version 1 does not send email. Messages need human approval, then the user sends them from their own mail client and marks them as sent. The communications table is already in place for a future Gmail/Outlook integration.
+- **Sending email:** automated via Gmail/Google Workspace (see *Automated outreach*). Outlook/SMTP are not yet supported.
+- **LinkedIn & WhatsApp:** not automated by design — LinkedIn has no API for messaging and bans automation tools; WhatsApp's Business API forbids cold messages. These steps become pre-written to-dos.
 - **Legal:** review GDPR, India's DPDP Act, UAE/KSA PDPL and each provider's terms with counsel before running outreach in a market.
 
 ## Project layout

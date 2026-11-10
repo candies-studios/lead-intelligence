@@ -14,6 +14,7 @@ import LeadDetail from './pages/LeadDetail';
 import Campaigns from './pages/Campaigns';
 import CampaignDetail from './pages/CampaignDetail';
 import Outreach from './pages/Outreach';
+import Inbox from './pages/Inbox';
 import FollowUps from './pages/FollowUps';
 import Analytics from './pages/Analytics';
 import Integrations from './pages/Integrations';
@@ -48,6 +49,7 @@ export default function App() {
               <Route path="campaigns" element={<Campaigns />} />
               <Route path="campaigns/:id" element={<CampaignDetail />} />
               <Route path="outreach" element={<Outreach />} />
+              <Route path="inbox" element={<Inbox />} />
               <Route path="follow-ups" element={<FollowUps />} />
               <Route path="analytics" element={<Analytics />} />
               <Route path="integrations" element={<Integrations />} />

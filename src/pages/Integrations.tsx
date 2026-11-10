@@ -4,6 +4,7 @@ import { callFn } from '@/lib/supabase';
 import { useAuth, ADMINS } from '@/lib/auth';
 import { useAsync, fmtDateTime } from '@/lib/hooks';
 import { Alert, Badge, Button, Card, Field, Input, Modal, PageHeader, Spinner, toast } from '@/components/ui';
+import MailboxesCard from '@/components/MailboxesCard';
 
 const HELP: Record<string, { url: string; note: string }> = {
   gemini: { url: 'https://aistudio.google.com/apikey', note: 'Free-tier AI with Grounding with Google Search: discovery, research reports, signals and outreach drafts. If search grounding errors, enable billing on the Google Cloud project (the monthly free search allowance still applies).' },
@@ -25,10 +26,11 @@ export default function Integrations() {
   return (
     <>
       <PageHeader title="Integrations" subtitle="Connection status is checked live against each provider. Keys never reach the browser — they are stored server-side and used only by Edge Functions." />
+      <MailboxesCard />
       {st.error && <Alert tone="error" title="Could not reach the integrations service">{st.error}. Deploy the Edge Functions (README → Deploy) and refresh.</Alert>}
       {st.loading ? <Spinner /> : st.data && (
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {st.data.map(i => {
+          {st.data.filter(i => i.provider !== 'gmail_automation').map(i => {
             const testable = !!HELP[i.provider];
             const tone = i.status === 'connected' ? 'green' : i.status === 'error' ? 'red' : i.status === 'builtin' ? 'navy' : i.status === 'planned' ? 'slate' : i.configured ? 'amber' : 'slate';
             const label = i.status === 'connected' ? 'Connected' : i.status === 'error' ? 'Error' : i.status === 'builtin' ? 'Built-in' : i.status === 'planned' ? 'Planned' : i.configured ? 'Key saved — test it' : 'Not connected';

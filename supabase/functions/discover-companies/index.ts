@@ -11,7 +11,8 @@ Deno.serve(handler(async (req, body) => {
     const f = body.filters ?? {};
     const all = await countries(ctx.admin);
     const { data: inds } = await ctx.admin.from('industries').select('name, keywords, segment').eq('is_active', true);
-    const segs: string[] = f.segments?.length ? f.segments : ['FMCG', 'FMCD'];
+    const allSegs = [...new Set((inds ?? []).map(i => i.segment))];
+    const segs: string[] = f.segments?.length ? f.segments : allSegs;
     const chosen = (inds ?? []).filter(i => f.industries?.length ? f.industries.includes(i.name) : segs.includes(i.segment));
     const sel = all.filter(c => (f.countries ?? []).includes(c.code));
     if (!sel.length) throw new HttpError(400, 'Select at least one country');

@@ -13,14 +13,14 @@ Deno.serve(handler(async (req, body) => {
   const log = (level: any, message: string) => { logs.push({ level, message }); };
   if (body.signals_only) {
     const n = await detectSignals(ctx.admin, company, log);
-    await logUsage(ctx, 'anthropic', 'signal_detection', 1, true, { company: company_id });
+    await logUsage(ctx, 'ai', 'signal_detection', 1, true, { company: company_id });
     const { data: leads } = await ctx.admin.from('leads').select('id').eq('company_id', company_id);
     for (const l of leads ?? []) await computeLeadScore(ctx.admin, l.id);
     return json({ signals: n, logs });
   }
   const { contacts, providers } = await findContacts(ctx.admin, {
     companyName: company.name, domain: company.domain, externalIds: company.external_ids ?? {},
-    departments: departments?.length ? departments : ['learning_development', 'human_resources', 'sales', 'trade_marketing'],
+    departments: departments?.length ? departments : ['learning_development', 'human_resources', 'sales', 'distribution_channel', 'trade_marketing'],
     seniorities: seniorities?.length ? seniorities : ['cxo', 'vp', 'director', 'head'],
     limit: Math.min(15, Math.max(1, Number(limit))), countryName: all.find(c => c.code === company.country_code)?.name ?? null,
   }, { enrichEmails: !!enrich_emails, log });

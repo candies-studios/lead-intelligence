@@ -59,7 +59,7 @@ export default function Leads() {
           <Input placeholder="Company, contact or title…" value={text} onChange={e => setText(e.target.value)} className="max-w-xs" />
           <Select value={stage} onChange={e => setStage(e.target.value)} className="w-44"><option value="">All stages</option>{STAGES.map(s => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}</Select>
           <Select value={prio} onChange={e => setPrio(e.target.value)} className="w-36"><option value="">All priorities</option><option value="A">Priority A</option><option value="B">Priority B</option><option value="C">Priority C</option><option value="R">Research req.</option></Select>
-          <Select value={seg} onChange={e => setSeg(e.target.value)} className="w-32"><option value="">All segments</option><option>FMCG</option><option>FMCD</option><option>Related</option></Select>
+          <Select value={seg} onChange={e => setSeg(e.target.value)} className="w-52"><option value="">All sector groups</option>{ref.data?.segments.map(s => <option key={s}>{s}</option>)}</Select>
           <Select value={country} onChange={e => setCountry(e.target.value)} className="w-40"><option value="">All countries</option>{ref.data?.countries.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}</Select>
           <Select value={dept} onChange={e => setDept(e.target.value)} className="w-48"><option value="">All functions</option>{DEPARTMENTS.map(d => <option key={d} value={d}>{DEPT_LABEL[d]}</option>)}</Select>
           <Select value={owner} onChange={e => setOwner(e.target.value)} className="w-44"><option value="">Any owner</option><option value="none">Unassigned</option>{users.map(u => <option key={u.id} value={u.id}>{u.full_name ?? u.email}</option>)}</Select>

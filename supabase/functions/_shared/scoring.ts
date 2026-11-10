@@ -46,10 +46,10 @@ function industryFactor(i: ScoreInput): [number, string] {
   if (typeof i.industryRelevance === 'number')
     return [i.industryRelevance, `${i.company.industry ?? 'Industry'} has configured relevance ${(i.industryRelevance * 100).toFixed(0)}%`];
   switch (i.company.industry_segment) {
-    case 'FMCG': return [1, 'Core FMCG company'];
-    case 'FMCD': return [1, 'Core FMCD / consumer durables company'];
-    case 'Related': return [0.75, 'Related retail / distribution organisation'];
-    default: return [0.25, 'Industry not yet confirmed — research required'];
+    case 'FMCG': return [1, 'FMCG — deep sales, distribution and trade marketing teams'];
+    case 'FMCD': return [1, 'Consumer durables — dealer/distributor-led sales model'];
+    case null: case undefined: case '': return [0.25, 'Industry not yet confirmed — research required'];
+    default: return [0.8, `${i.company.industry_segment} — sells through sales teams and channel partners`];
   }
 }
 
@@ -77,12 +77,13 @@ function trainingFactor(dept: string | null | undefined, title: string | null | 
     learning_development: [1, 'Owns L&D / capability budgets — primary buyer'],
     human_resources: [0.8, 'HR leadership — sponsors leadership development'],
     sales: [0.7, 'Sales leadership — direct beneficiary of commercial simulation'],
+    distribution_channel: [0.75, 'Distribution & channel leadership — channel economics and partner management fit'],
     trade_marketing: [0.65, 'Trade marketing / category — retailer economics fit'],
     other: [0.1, 'Function not linked to training decisions'],
   };
   if (!dept) return [0, 'No contact identified yet'];
   let [f, r] = base[dept] ?? base.other;
-  if (title && /capabilit|sales excellence|commercial excellence|academy|sales training/i.test(title)) {
+  if (title && /capabilit|sales excellence|commercial excellence|channel excellence|distribution excellence|academy|sales training/i.test(title)) {
     f = Math.min(1, f + 0.2); r += '; title explicitly covers capability/excellence';
   }
   return [f, r];

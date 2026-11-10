@@ -52,7 +52,7 @@ export default function CompanyProfile() {
           <Button icon={<UserSearch className="h-4 w-4" />} onClick={() => setFinding(true)}>Find decision-makers</Button>
           <Button variant="primary" icon={<Sparkles className="h-4 w-4" />} loading={researching} onClick={research}>Generate AI Company Intelligence Report</Button>
         </>} />
-      {researching && <div className="mb-4"><Alert tone="info">Researching with live sources (company website, search results, Claude web search). This usually takes 30–90 seconds.</Alert></div>}
+      {researching && <div className="mb-4"><Alert tone="info">Researching with live sources (company website, search results, AI web search). This usually takes 30–90 seconds.</Alert></div>}
 
       <div className="grid xl:grid-cols-3 gap-4">
         <div className="xl:col-span-2 space-y-4">
@@ -132,7 +132,7 @@ export default function CompanyProfile() {
 }
 
 export function FindContactsModal({ companyId, onClose, onDone }: { companyId: string; onClose: () => void; onDone: () => void }) {
-  const [depts, setDepts] = useState<string[]>(['learning_development', 'human_resources', 'sales', 'trade_marketing']);
+  const [depts, setDepts] = useState<string[]>(['learning_development', 'human_resources', 'sales', 'distribution_channel', 'trade_marketing']);
   const [sens, setSens] = useState<string[]>(['cxo', 'vp', 'director', 'head']);
   const [limit, setLimit] = useState('5'); const [enrich, setEnrich] = useState(false); const [signals, setSignals] = useState(false);
   const [busy, setBusy] = useState(false); const [result, setResult] = useState<any>(null); const [err, setErr] = useState<string | null>(null);

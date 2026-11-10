@@ -23,7 +23,8 @@ export async function q<T>(p: PromiseLike<{ data: T | null; error: any; count?: 
 }
 
 export interface RefData {
-  industries: { id: string; name: string; segment: string; relevance: number; is_active: boolean; keywords: string[] }[];
+  industries: { id: string; name: string; segment: string; relevance: number; is_active: boolean; keywords: string[]; sort_order?: number }[];
+  segments: string[];
   countries: { code: string; name: string; region: string; is_focus: boolean; is_active: boolean; cities: string[] }[];
   users: { id: string; full_name: string | null; email: string; role: string; is_active: boolean }[];
 }
@@ -32,11 +33,12 @@ export function useRefData() {
   return useAsync<RefData>(async () => {
     if (refCache) return refCache;
     const [industries, countries, users] = await Promise.all([
-      q(supabase.from('industries').select('*').order('segment').order('name')),
+      q(supabase.from('industries').select('*').order('sort_order', { ascending: true, nullsFirst: false }).order('segment').order('name')),
       q(supabase.from('countries').select('*').order('name')),
       q(supabase.from('users').select('id, full_name, email, role, is_active').order('full_name')),
     ]);
-    refCache = { industries: industries as any, countries: countries as any, users: users as any };
+    const segs = [...new Set((industries as any[]).filter(i => i.is_active).map(i => i.segment as string))];
+    refCache = { industries: industries as any, countries: countries as any, users: users as any, segments: segs };
     return refCache;
   });
 }

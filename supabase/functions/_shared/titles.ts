@@ -1,5 +1,5 @@
 // Pure title classification — no Deno/Node APIs so it is unit-testable with Vitest.
-export type Department = 'learning_development' | 'human_resources' | 'sales' | 'trade_marketing' | 'other';
+export type Department = 'learning_development' | 'human_resources' | 'sales' | 'distribution_channel' | 'trade_marketing' | 'other';
 export type Seniority = 'cxo' | 'vp' | 'director' | 'head' | 'manager' | 'senior' | 'other';
 
 export interface TitleClassification {
@@ -15,8 +15,9 @@ const norm = (t: string) =>
 const DEPT_RULES: Array<[Department, RegExp]> = [
   ['learning_development', /learning|\bl ?& ?d\b|\bl and d\b|training|capabilit|academy|leadership development|\bclo\b|talent development|learning business partner/],
   ['trade_marketing', /trade marketing|category|shopper|channel development|revenue growth|\brgm\b|commercial strategy/],
+  ['distribution_channel', /distribution|distributor|\bchannel|dealer|partner (sales|network|ecosystem)|channel partner|alliances? (&|and) channel|route.to.market|\brtm\b|general trade|modern trade|organi[sz]ed retail|indirect sales|franchise (network|development)/],
   ['human_resources', /\bhr\b|\bhrbp\b|human resource|\bpeople\b|talent|\bchro\b|organi[sz]ation(al)? development|\bod\b|\bcpo\b.*people|personnel/],
-  ['sales', /sales|commercial|business development|key account|\bkam\b|\bcso\b|\bcco\b|go to market|route to market|distribution head/],
+  ['sales', /sales|commercial|business development|key account|\bkam\b|\bcso\b|\bcco\b|go to market/],
 ];
 
 export function classifyDepartment(title: string): Department {
@@ -37,7 +38,7 @@ export function classifySeniority(title: string): Seniority {
 }
 
 const PRIORITY: Record<Department, 1 | 2 | 3 | 4 | null> = {
-  learning_development: 1, human_resources: 2, sales: 3, trade_marketing: 4, other: null,
+  learning_development: 1, human_resources: 2, sales: 3, distribution_channel: 3, trade_marketing: 4, other: null,
 };
 
 export function classifyTitle(title: string | null | undefined): TitleClassification {
@@ -49,7 +50,7 @@ export function classifyTitle(title: string | null | undefined): TitleClassifica
     (['cxo', 'vp', 'director', 'head'].includes(seniority) ||
       // Learning Business Partners are explicitly targeted
       (department === 'learning_development' && seniority === 'senior') ||
-      (/national trade marketing manager|national sales manager/.test(norm(title))));
+      (/national (trade marketing|sales|distribution|key account) manager/.test(norm(title))));
   return { department, seniority, priority: PRIORITY[department], isDecisionMaker };
 }
 
@@ -72,6 +73,7 @@ export const TITLE_QUERIES: Record<Department, string[]> = {
   learning_development: ['learning and development', 'L&D', 'learning', 'training', 'capability development', 'leadership development', 'chief learning officer', 'sales capability'],
   human_resources: ['CHRO', 'chief human resources officer', 'HR director', 'head of HR', 'human resources', 'talent management', 'organisational development', 'chief people officer'],
   sales: ['chief sales officer', 'sales director', 'head of sales', 'VP sales', 'national sales', 'commercial director', 'sales excellence', 'commercial excellence', 'sales training'],
+  distribution_channel: ['head of distribution', 'distribution director', 'channel sales', 'channel partner', 'dealer network', 'dealer development', 'route to market', 'general trade', 'modern trade', 'national distribution manager'],
   trade_marketing: ['trade marketing', 'category management', 'category director', 'shopper marketing', 'channel development', 'revenue growth management', 'commercial strategy'],
   other: [],
 };

@@ -3,7 +3,7 @@ import { providerFetch } from '../http.ts';
 import type { ContactCandidate, ContactQuery, ProviderResult } from './types.ts';
 
 const BASE = 'https://api.hunter.io/v2';
-const DEPT: Record<string, string> = { learning_development: 'hr', human_resources: 'hr', sales: 'sales', trade_marketing: 'marketing' };
+const DEPT: Record<string, string> = { learning_development: 'hr', human_resources: 'hr', sales: 'sales', distribution_channel: 'sales', trade_marketing: 'marketing' };
 
 export interface HunterDomainResult extends ProviderResult<ContactCandidate> { pattern: string | null }
 

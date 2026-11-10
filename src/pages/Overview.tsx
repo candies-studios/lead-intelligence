@@ -20,11 +20,11 @@ export default function Overview() {
   return (
     <>
       <PageHeader title={`Good ${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}${profile?.full_name ? `, ${profile.full_name.split(' ')[0]}` : ''}`}
-        subtitle="Your prospecting pipeline across FMCG and FMCD markets."
+        subtitle="Your prospecting pipeline for Sales, Trade Marketing, Distribution & Channel Management audiences across industries."
         actions={<><Link to="/campaigns"><Button variant="primary" icon={<Target className="h-4 w-4" />}>New discovery campaign</Button></Link></>} />
       {integ.data && connected.every(c => !c.configured) && (
         <div className="mb-6"><Alert tone="warn" title="No data providers connected yet">
-          Discovery, enrichment and AI research need at least one provider. <Link className="underline" to="/integrations">Connect Claude, Apollo, Hunter, People Data Labs or Google Search</Link>. Until then you can add companies and contacts manually.
+          Discovery, enrichment and AI research need at least one provider. <Link className="underline" to="/integrations">Connect Gemini (free tier), Claude, Apollo, Hunter, People Data Labs or Google Search</Link>. Until then you can add companies and contacts manually.
         </Alert></div>
       )}
       {stats.loading ? <Spinner /> : stats.error ? <Alert tone="error">{stats.error}</Alert> : (

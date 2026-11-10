@@ -29,8 +29,8 @@ export default function Login() {
           <div className="text-xs tracking-[0.3em] text-navy-300">LEAD INTELLIGENCE</div>
         </div>
         <div className="relative max-w-md">
-          <h2 className="font-display text-3xl font-bold leading-tight">Find the FMCG & FMCD leaders who buy commercial capability.</h2>
-          <p className="mt-4 text-navy-200 text-sm leading-relaxed">Research companies, identify L&D, HR, Sales and Trade Marketing decision-makers with sourced contact data, qualify them with transparent scoring, and run personalised outreach for the three-day World of Trade simulation.</p>
+          <h2 className="font-display text-3xl font-bold leading-tight">Find the leaders who build sales, trade marketing, distribution & channel capability.</h2>
+          <p className="mt-4 text-navy-200 text-sm leading-relaxed">Across 20+ sectors — from FMCG and consumer durables to pharma, automotive, building materials, agri-inputs, telecom and financial services — research companies, identify L&D, HR, Sales, Distribution and Trade Marketing decision-makers with sourced contact data, qualify them with transparent scoring, and run personalised outreach for the three-day World of Trade simulation.</p>
         </div>
         <div className="text-xs text-navy-400">Sourced data only · No fabricated contacts · GDPR & DPDP-conscious</div>
       </div>

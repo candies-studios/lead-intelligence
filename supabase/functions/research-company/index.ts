@@ -1,8 +1,8 @@
 // "Generate AI Company Intelligence Report" — grounded in retrieved information only.
 import { getContext, handler, json, HttpError, logUsage } from '../_shared/context.ts';
-import { getClaudeConfig } from '../_shared/ai.ts';
+import { aiMessage, aiAvailable } from '../_shared/ai.ts';
 import { getCreds } from '../_shared/secrets.ts';
-import { claudeMessage, extractJson, wasRetrieved, WOT_CONTEXT } from '../_shared/providers/claude.ts';
+import { extractJson, wasRetrieved, WOT_CONTEXT } from '../_shared/providers/claude.ts';
 import { readWebsite } from '../_shared/providers/website.ts';
 import { googleSearch } from '../_shared/providers/google.ts';
 import type { WebResult } from '../_shared/providers/types.ts';
@@ -13,7 +13,7 @@ Deno.serve(handler(async (req, body) => {
   const { company_id } = body;
   const { data: company } = await ctx.userClient.from('companies').select('*').eq('id', company_id).single();
   if (!company) throw new HttpError(404, 'Company not found');
-  const cfg = (await getClaudeConfig(ctx.admin))!;
+  if (!(await aiAvailable(ctx.admin))) throw new HttpError(412, 'No AI provider is connected. Add a Gemini or Claude key on the Integrations page.');
 
   const [{ data: contacts }, { data: signals }, { data: sources }, { data: brands }] = await Promise.all([
     ctx.admin.from('contacts').select('id, full_name, title, department, seniority, email_status, linkedin_url, confidence').eq('company_id', company_id),
@@ -63,8 +63,8 @@ Produce ONLY JSON with this shape:
  "confidence":{"overall":"high|medium|low","notes":""},
  "new_brands":[{"brand":"","category":"","source":""}]}`;
 
-  const res = await claudeMessage({ ...cfg, maxTokens: 5000 }, sys, user, { webSearch: true, maxSearches: evidence.length > 3 ? 3 : 6 });
-  await logUsage(ctx, 'anthropic', 'company_research', (res.usage.input_tokens ?? 0) + (res.usage.output_tokens ?? 0), true, { company: company_id });
+  const res = await aiMessage(ctx.admin, sys, user, { webSearch: true, maxSearches: evidence.length > 3 ? 3 : 6, maxTokens: 6000 });
+  await logUsage(ctx, res.provider, 'company_research', (res.usage.input_tokens ?? 0) + (res.usage.output_tokens ?? 0), true, { company: company_id });
   const report = extractJson<any>(res.text);
   const allowed = [...evidence, ...res.retrieved];
   // strip any citation that wasn't actually retrieved
@@ -76,10 +76,10 @@ Produce ONLY JSON with this shape:
     await ctx.admin.from('company_brands').insert({ company_id, brand_name: b.brand, category: b.category ?? null, source_url: b.source }).then(() => {}, () => {});
   delete report.new_brands;
   for (const r of res.retrieved.slice(0, 15))
-    await ctx.admin.from('company_sources').upsert({ company_id, url: r.url, title: r.title, source_type: 'web', provider: 'anthropic_web_search' }, { onConflict: 'company_id,url', ignoreDuplicates: true });
+    await ctx.admin.from('company_sources').upsert({ company_id, url: r.url, title: r.title, source_type: 'web', provider: `${res.provider}_web_search` }, { onConflict: 'company_id,url', ignoreDuplicates: true });
 
   const usedSources = [...new Map(allowed.map(a => [a.url, { url: a.url, title: a.title, provider: a.provider }])).values()];
-  const { data: saved, error } = await ctx.admin.from('research_reports').insert({ company_id, report, sources: usedSources, model: cfg.model, created_by: ctx.user.id }).select('*').single();
+  const { data: saved, error } = await ctx.admin.from('research_reports').insert({ company_id, report, sources: usedSources, model: `${res.provider === 'gemini' ? 'Gemini' : 'Claude'} · ${res.model}`, created_by: ctx.user.id }).select('*').single();
   if (error) throw error;
   await ctx.admin.from('companies').update({ last_verified_at: new Date().toISOString() }).eq('id', company_id);
   const { data: leads } = await ctx.admin.from('leads').select('id').eq('company_id', company_id);

@@ -87,7 +87,7 @@ create policy usage_read on public.usage_events for select to authenticated usin
 
 -- Privacy: hard-delete a contact and record the request (callable by admins)
 create or replace function public.erase_contact(p_contact_id uuid, p_reason text default 'deletion_request')
-returns void language plpgsql security definer set search_path = public as $$
+returns void language plpgsql security definer set search_path = public, extensions as $$
 declare e citext;
 begin
   if not public.is_admin() then raise exception 'Admins only'; end if;

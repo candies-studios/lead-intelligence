@@ -45,19 +45,19 @@ create table public.users (
 create trigger trg_users_updated before update on public.users for each row execute function set_updated_at();
 
 create or replace function public.app_current_role() returns app_role
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = public, extensions as $$
   select role from public.users where id = auth.uid() and is_active
 $$;
-create or replace function public.is_member() returns boolean language sql stable security definer set search_path = public as $$
+create or replace function public.is_member() returns boolean language sql stable security definer set search_path = public, extensions as $$
   select exists(select 1 from public.users where id = auth.uid() and is_active) $$;
-create or replace function public.is_admin() returns boolean language sql stable security definer set search_path = public as $$
+create or replace function public.is_admin() returns boolean language sql stable security definer set search_path = public, extensions as $$
   select coalesce(public.app_current_role() in ('super_admin','admin'), false) $$;
-create or replace function public.is_manager() returns boolean language sql stable security definer set search_path = public as $$
+create or replace function public.is_manager() returns boolean language sql stable security definer set search_path = public, extensions as $$
   select coalesce(public.app_current_role() in ('super_admin','admin','sales_manager'), false) $$;
 
 -- First signup becomes super_admin; everyone else starts as sales_executive.
 create or replace function public.handle_new_user() returns trigger
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 begin
   insert into public.users(id, email, full_name, role)
   values (new.id, new.email, coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email,'@',1)),
@@ -68,7 +68,7 @@ end $$;
 create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
 
 -- Prevent non-admins from escalating their own role
-create or replace function public.guard_user_role() returns trigger language plpgsql security definer set search_path = public as $$
+create or replace function public.guard_user_role() returns trigger language plpgsql security definer set search_path = public, extensions as $$
 begin
   if (new.role is distinct from old.role or new.is_active is distinct from old.is_active) and not public.is_admin() then
     raise exception 'Only admins can change roles or activation';
@@ -418,7 +418,7 @@ create table public.notes (
 );
 
 -- Keep lead next_follow_up_at in sync
-create or replace function public.sync_next_follow_up() returns trigger language plpgsql security definer set search_path = public as $$
+create or replace function public.sync_next_follow_up() returns trigger language plpgsql security definer set search_path = public, extensions as $$
 declare lid uuid := coalesce(new.lead_id, old.lead_id);
 begin
   update public.leads set next_follow_up_at =
@@ -428,7 +428,7 @@ begin
 end $$;
 create trigger trg_follow_up_sync after insert or update or delete on public.follow_ups for each row execute function sync_next_follow_up();
 
-create or replace function public.sync_last_contact() returns trigger language plpgsql security definer set search_path = public as $$
+create or replace function public.sync_last_contact() returns trigger language plpgsql security definer set search_path = public, extensions as $$
 begin
   if new.direction = 'outbound' then
     update public.leads set last_contact_at = greatest(coalesce(last_contact_at, new.occurred_at), new.occurred_at) where id = new.lead_id;
@@ -473,7 +473,7 @@ create table public.suppression_list (
 create unique index suppression_email_uq on public.suppression_list(email) where email is not null;
 create unique index suppression_domain_uq on public.suppression_list(domain) where domain is not null;
 
-create or replace function public.apply_suppression() returns trigger language plpgsql security definer set search_path = public as $$
+create or replace function public.apply_suppression() returns trigger language plpgsql security definer set search_path = public, extensions as $$
 begin
   if new.email is not null and exists (
      select 1 from public.suppression_list s
@@ -484,7 +484,7 @@ begin
 end $$;
 create trigger trg_contacts_suppression before insert or update of email on public.contacts for each row execute function apply_suppression();
 
-create or replace function public.propagate_suppression() returns trigger language plpgsql security definer set search_path = public as $$
+create or replace function public.propagate_suppression() returns trigger language plpgsql security definer set search_path = public, extensions as $$
 begin
   update public.contacts set do_not_contact = true
    where (new.email is not null and email = new.email)
@@ -517,7 +517,7 @@ create table public.usage_events (
 );
 create index usage_events_created_idx on public.usage_events(created_at desc, provider);
 
-create or replace function public.audit_trigger() returns trigger language plpgsql security definer set search_path = public as $$
+create or replace function public.audit_trigger() returns trigger language plpgsql security definer set search_path = public, extensions as $$
 declare rec jsonb; changed jsonb;
 begin
   rec := case when tg_op = 'DELETE' then to_jsonb(old) else to_jsonb(new) end;

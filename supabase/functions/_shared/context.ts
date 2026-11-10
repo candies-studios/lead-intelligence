@@ -1,9 +1,11 @@
 import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
-export const corsHeaders = {
+// Allow every header supabase-js sends (newer versions add x-retry-count and W3C tracing headers).
+export const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') ?? '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-retry-count, x-region, traceparent, tracestate, baggage, sentry-trace, x-supabase-api-version',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
 };
 
 export function json(body: unknown, status = 200) {
@@ -37,7 +39,11 @@ export async function getContext(req: Request, allowed?: Role[]): Promise<Ctx> {
 
 export function handler(fn: (req: Request, body: any) => Promise<Response>) {
   return async (req: Request) => {
-    if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+    if (req.method === 'OPTIONS') {
+      // Echo whatever headers the browser asks to send, so future client headers never break the preflight.
+      const requested = req.headers.get('access-control-request-headers');
+      return new Response('ok', { headers: { ...corsHeaders, ...(requested ? { 'Access-Control-Allow-Headers': requested } : {}) } });
+    }
     try {
       const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
       return await fn(req, body);

@@ -4,12 +4,13 @@ export const ROLE_LABEL: Record<Role, string> = {
   super_admin: 'Super Admin', admin: 'Admin', sales_manager: 'Sales Manager', sales_executive: 'Sales Executive', researcher: 'Researcher',
 };
 
-export const DEPARTMENTS = ['learning_development', 'human_resources', 'sales', 'trade_marketing', 'other'] as const;
+export const DEPARTMENTS = ['learning_development', 'human_resources', 'sales', 'distribution_channel', 'trade_marketing', 'other'] as const;
+export const TARGET_DEPARTMENTS = ['learning_development', 'human_resources', 'sales', 'distribution_channel', 'trade_marketing'] as const;
 export const DEPT_LABEL: Record<string, string> = {
   learning_development: 'Learning & Development', human_resources: 'Human Resources', sales: 'Sales Leadership',
-  trade_marketing: 'Trade Marketing & Category', other: 'Other',
+  distribution_channel: 'Distribution & Channel Management', trade_marketing: 'Trade Marketing & Category', other: 'Other',
 };
-export const DEPT_SHORT: Record<string, string> = { learning_development: 'L&D', human_resources: 'HR', sales: 'Sales', trade_marketing: 'Trade Mktg', other: 'Other' };
+export const DEPT_SHORT: Record<string, string> = { learning_development: 'L&D', human_resources: 'HR', sales: 'Sales', distribution_channel: 'Distribution', trade_marketing: 'Trade Mktg', other: 'Other' };
 
 export const SENIORITIES = ['cxo', 'vp', 'director', 'head', 'senior', 'manager', 'other'] as const;
 export const SENIORITY_LABEL: Record<string, string> = { cxo: 'CXO', vp: 'VP', director: 'Director', head: 'Head', senior: 'Senior / BP', manager: 'Manager', other: 'Other' };
@@ -47,6 +48,7 @@ export const SIGNAL_LABEL: Record<string, string> = {
 
 export const PROVIDER_LABEL: Record<string, string> = {
   apollo: 'Apollo', hunter: 'Hunter', pdl: 'People Data Labs', anthropic: 'Claude', anthropic_web_search: 'Claude web search',
+  gemini: 'Gemini', gemini_web_search: 'Gemini + Google Search', ai: 'AI',
   google_cse: 'Google Search', website: 'Company website', manual: 'Manual', demo: 'Demo',
 };
 export const providerLabel = (p?: string | null) => (p ?? 'manual').split('+').map(x => PROVIDER_LABEL[x] ?? x).join(' + ');

@@ -19,6 +19,15 @@ describe('title classification', () => {
     ['Head of Revenue Growth Management', 'trade_marketing', 'head'],
     ['Category Director', 'trade_marketing', 'director'],
     ['Software Engineer', 'other', 'other'],
+    ['Head of Distribution', 'distribution_channel', 'head'],
+    ['Channel Sales Director – South Asia', 'distribution_channel', 'director'],
+    ['VP, Dealer Network Development', 'distribution_channel', 'vp'],
+    ['Head of Route-to-Market', 'distribution_channel', 'head'],
+    ['National Head – General Trade', 'distribution_channel', 'head'],
+    ['Head of Channel Partnerships', 'distribution_channel', 'head'],
+    ['Head of Channel Development', 'trade_marketing', 'head'],
+    ['HR Business Partner', 'human_resources', 'senior'],
+    ['Head of Key Accounts', 'sales', 'head'],
   ];
   it.each(cases)('%s', (title, dept, sen) => {
     const c = classifyTitle(title);
@@ -37,7 +46,29 @@ describe('title classification', () => {
   });
 });
 
+describe('distribution & channel targeting', () => {
+  it('National Distribution Manager counts as a decision-maker', () => {
+    const c = classifyTitle('National Distribution Manager');
+    expect(c.department).toBe('distribution_channel');
+    expect(c.isDecisionMaker).toBe(true);
+    expect(c.priority).toBe(3);
+  });
+});
+
 describe('lead scoring', () => {
+  it('scores a non-FMCG sector (building materials) on equal footing', () => {
+    const r = scoreLead({
+      company: { industry: 'Paints & Coatings', industry_segment: 'Building Materials & Construction', employee_count: 8000, country_code: 'IN' }, industryRelevance: 1,
+      contact: { title: 'Head of Dealer Network', department: 'distribution_channel', seniority: 'head', email_status: 'verified', linkedin_url: 'x', source_count: 1 },
+      signals: [{ published_at: '2026-08-01' }, { published_at: '2026-05-01' }], focusCountries: ['IN'], now,
+    });
+    expect(r.factors.find(f => f.key === 'training_relevance')!.reason).toMatch(/channel/i);
+    expect(r.total).toBeGreaterThanOrEqual(80);
+  });
+  it('unknown sector group without configured relevance gets a reasonable default', () => {
+    const r = scoreLead({ company: { industry_segment: 'Automotive & Mobility' }, contact: null, signals: [], focusCountries: [], now });
+    expect(r.factors.find(f => f.key === 'industry')!.fraction).toBe(0.8);
+  });
   it('scores an ideal FMCG lead as Priority A', () => {
     const r = scoreLead({
       company: { industry_segment: 'FMCG', employee_count: 12000, country_code: 'IN' }, industryRelevance: 1,

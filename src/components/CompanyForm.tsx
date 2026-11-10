@@ -58,7 +58,7 @@ export default function CompanyForm({ open, onClose, onSaved, initial }: { open:
         <Field label="Company name *"><Input value={f.name} onChange={set('name')} /></Field>
         <Field label="Official website"><Input value={f.website} onChange={set('website')} placeholder="https://" /></Field>
         <Field label="Industry"><Select value={f.industry} onChange={set('industry')}><option value="">—</option>
-          {['FMCG', 'FMCD', 'Related'].map(seg => <optgroup key={seg} label={seg}>{ref.data?.industries.filter(i => i.segment === seg && i.is_active).map(i => <option key={i.id}>{i.name}</option>)}</optgroup>)}
+          {(ref.data?.segments ?? []).map(seg => <optgroup key={seg} label={seg}>{ref.data?.industries.filter(i => i.segment === seg && i.is_active).map(i => <option key={i.id}>{i.name}</option>)}</optgroup>)}
         </Select></Field>
         <Field label="Country"><Select value={f.country_code} onChange={set('country_code')}><option value="">—</option>{ref.data?.countries.filter(c => c.is_active).map(c => <option key={c.code} value={c.code}>{c.name}</option>)}</Select></Field>
         <Field label="Headquarters city"><Input value={f.hq_city} onChange={set('hq_city')} /></Field>

@@ -83,15 +83,15 @@ function Scoring() {
 }
 
 function Industries() {
-  const list = useAsync(() => q(supabase.from('industries').select('*').order('segment').order('name')), []);
+  const list = useAsync(() => q(supabase.from('industries').select('*').order('sort_order', { ascending: true, nullsFirst: false }).order('segment').order('name')), []);
   const [n, setN] = useState({ name: '', segment: 'FMCG', relevance: '1', keywords: '' });
   const upd = async (id: string, p: any) => { const { error } = await supabase.from('industries').update(p).eq('id', id); error ? toast.error(error.message) : (list.reload(), invalidateRefData()); };
-  const add = async () => { const { error } = await supabase.from('industries').insert({ name: n.name, segment: n.segment, relevance: +n.relevance, keywords: n.keywords.split(',').map(s => s.trim()).filter(Boolean) }); error ? toast.error(error.message) : (setN({ ...n, name: '', keywords: '' }), list.reload(), invalidateRefData()); };
+  const add = async () => { if (!n.segment.trim()) return toast.error('Sector group is required'); const { error } = await supabase.from('industries').insert({ name: n.name, segment: n.segment.trim(), relevance: +n.relevance, keywords: n.keywords.split(',').map(s => s.trim()).filter(Boolean) }); error ? toast.error(error.message) : (setN({ ...n, name: '', keywords: '' }), list.reload(), invalidateRefData()); };
   return (
     <Card pad={false}>
       <div className="flex flex-wrap gap-2 p-4 border-b border-slate-100 items-end">
         <Field label="Industry"><Input value={n.name} onChange={e => setN({ ...n, name: e.target.value })} /></Field>
-        <Field label="Segment"><Select value={n.segment} onChange={e => setN({ ...n, segment: e.target.value })}><option>FMCG</option><option>FMCD</option><option>Related</option></Select></Field>
+        <Field label="Sector group" hint="Pick one or type a new group"><Input list="sector-groups" value={n.segment} onChange={e => setN({ ...n, segment: e.target.value })} /><datalist id="sector-groups">{[...new Set(((list.data as any[]) ?? []).map(i => i.segment))].map(s => <option key={s} value={s} />)}</datalist></Field>
         <Field label="Relevance 0–1"><Input type="number" step="0.05" min={0} max={1} className="w-24" value={n.relevance} onChange={e => setN({ ...n, relevance: e.target.value })} /></Field>
         <Field label="Search keywords (comma-separated)"><Input className="w-72" value={n.keywords} onChange={e => setN({ ...n, keywords: e.target.value })} /></Field>
         <Button variant="primary" icon={<Plus className="h-4 w-4" />} disabled={!n.name} onClick={add}>Add</Button>
@@ -208,18 +208,36 @@ function Duplicates() {
 }
 
 function AiSettings() {
-  const s = useAsync(() => q(supabase.from('app_settings').select('*').in('key', ['ai_model', 'outreach_defaults'])), []);
-  const [model, setModel] = useState('claude-sonnet-5-5'); const [max, setMax] = useState('4000'); const [defaults, setDefaults] = useState('');
-  useEffect(() => { const rows = (s.data as any[]) ?? []; const m = rows.find(r => r.key === 'ai_model')?.value; const d = rows.find(r => r.key === 'outreach_defaults')?.value; if (m) { setModel(m.model); setMax(String(m.max_tokens)); } if (d) setDefaults(JSON.stringify(d, null, 2)); }, [s.data]);
+  const s = useAsync(() => q(supabase.from('app_settings').select('*').in('key', ['ai_provider', 'ai_model', 'gemini_model', 'outreach_defaults'])), []);
+  const [provider, setProvider] = useState('auto');
+  const [model, setModel] = useState('claude-sonnet-4-5'); const [max, setMax] = useState('4000');
+  const [gModel, setGModel] = useState('gemini-flash-latest'); const [gMax, setGMax] = useState('8000');
+  const [defaults, setDefaults] = useState('');
+  useEffect(() => {
+    const rows = (s.data as any[]) ?? []; const get = (k: string) => rows.find(r => r.key === k)?.value;
+    if (get('ai_provider')) setProvider(get('ai_provider').provider ?? 'auto');
+    if (get('ai_model')) { setModel(get('ai_model').model); setMax(String(get('ai_model').max_tokens)); }
+    if (get('gemini_model')) { setGModel(get('gemini_model').model); setGMax(String(get('gemini_model').max_tokens)); }
+    if (get('outreach_defaults')) setDefaults(JSON.stringify(get('outreach_defaults'), null, 2));
+  }, [s.data]);
   const save = async () => {
     let d; try { d = JSON.parse(defaults || '{}'); } catch { return toast.error('Outreach defaults must be valid JSON'); }
-    const { error } = await supabase.from('app_settings').upsert([{ key: 'ai_model', value: { model, max_tokens: +max } }, { key: 'outreach_defaults', value: d }]);
+    const { error } = await supabase.from('app_settings').upsert([
+      { key: 'ai_provider', value: { provider } },
+      { key: 'ai_model', value: { model, max_tokens: +max } },
+      { key: 'gemini_model', value: { model: gModel, max_tokens: +gMax } },
+      { key: 'outreach_defaults', value: d }]);
     error ? toast.error(error.message) : toast.success('Saved');
   };
   return (
     <Card className="max-w-xl"><div className="space-y-3">
-      <Field label="Claude model" hint="Any Messages-API model id. ANTHROPIC_MODEL env var overrides this."><Input value={model} onChange={e => setModel(e.target.value)} /></Field>
-      <Field label="Default max tokens"><Input type="number" value={max} onChange={e => setMax(e.target.value)} /></Field>
+      <Field label="AI provider" hint="Auto uses whichever provider is connected and falls back to the other if one fails (e.g. no credit)."><Select value={provider} onChange={e => setProvider(e.target.value)}><option value="auto">Auto</option><option value="gemini">Gemini (Google) first</option><option value="anthropic">Claude (Anthropic) first</option></Select></Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Gemini model" hint="GEMINI_MODEL env var overrides this."><Input value={gModel} onChange={e => setGModel(e.target.value)} /></Field>
+        <Field label="Gemini max tokens"><Input type="number" value={gMax} onChange={e => setGMax(e.target.value)} /></Field>
+        <Field label="Claude model" hint="ANTHROPIC_MODEL env var overrides this."><Input value={model} onChange={e => setModel(e.target.value)} /></Field>
+        <Field label="Claude max tokens"><Input type="number" value={max} onChange={e => setMax(e.target.value)} /></Field>
+      </div>
       <Field label="Outreach defaults (JSON)"><Textarea rows={5} className="font-mono text-xs" value={defaults} onChange={e => setDefaults(e.target.value)} /></Field>
       <Button variant="primary" onClick={save}>Save</Button>
     </div></Card>

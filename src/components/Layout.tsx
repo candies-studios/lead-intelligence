@@ -50,7 +50,7 @@ export default function Layout() {
       <div className="flex-1 lg:pl-64 min-w-0">
         <header className="sticky top-0 z-20 h-14 bg-white/85 backdrop-blur border-b border-slate-200/70 flex items-center justify-between px-4 lg:px-8">
           <button className="lg:hidden text-ink-soft" onClick={() => setOpen(!open)}>{open ? <X /> : <Menu />}</button>
-          <div className="hidden lg:block text-xs text-ink-faint">FMCG & FMCD prospect intelligence · quality over quantity</div>
+          <div className="hidden lg:block text-xs text-ink-faint">Sales, Trade Marketing, Distribution & Channel prospect intelligence · quality over quantity</div>
           <label className="flex items-center gap-2 text-xs text-ink-soft cursor-pointer select-none" title="Demo mode shows only clearly-labelled fictional records and hides real prospect data">
             <FlaskConical className={cx('h-3.5 w-3.5', demo && 'text-amber-600')} />Demo mode
             <input type="checkbox" checked={demo} onChange={e => setDemo(e.target.checked)} className="accent-amber-600" />

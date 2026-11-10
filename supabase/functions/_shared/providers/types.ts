@@ -2,7 +2,7 @@
 // Rule: providers only return what the upstream source actually returned — never synthesised values.
 
 export interface CompanyQuery {
-  segments: string[];          // FMCG / FMCD / Related
+  segments: string[];          // sector groups, e.g. FMCG, Pharma & Healthcare, Automotive & Mobility
   industries: string[];        // industry names from the industries table
   industryKeywords: string[];  // derived from industries.keywords
   countries: { code: string; name: string }[];

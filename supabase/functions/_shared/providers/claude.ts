@@ -66,9 +66,14 @@ export function filterToRetrieved<T extends { source_url?: string | null }>(item
   return items.filter(i => wasRetrieved(i.source_url, retrieved));
 }
 
-export const WOT_CONTEXT = `World of Trade (https://worldoftrade.pro/) runs a three-day experiential business simulation for FMCG and FMCD companies.
+export const WOT_CONTEXT = `World of Trade (https://worldoftrade.pro/) runs a three-day experiential business simulation for
+Sales, Trade Marketing, Distribution & Channel Management professionals across industries.
 20–30 corporate participants form teams of 4–6 that each run a business with ~$1M virtual budget in a virtual market
 (geography, population, demographics, age, gender, income, consumer demand). Teams make decisions on manufacturing,
 distribution, retail, HR, operations, marketing, pricing and investment. Manufacturers sell to retailers; retailers sell to consumers.
-Teams compete for maximum profitability. It builds commercial acumen, negotiation, P&L/financial understanding,
-strategic decision-making and cross-functional collaboration. Typical buyers: L&D, HR, Sales and Trade Marketing leaders.`;
+Teams compete for maximum profitability. It builds commercial acumen, channel and partner economics, distributor/dealer/retailer
+management, trade-terms negotiation, pricing, P&L/financial understanding, strategic decision-making and cross-functional collaboration.
+The skills transfer to ANY company that sells through sales teams, distributors, dealers, retailers, agents or channel partners —
+e.g. FMCG, consumer durables, pharma & healthcare, automotive, building materials, agri-inputs, telecom, technology, industrial,
+financial services and insurance, energy, apparel & lifestyle, retail and distribution.
+Typical buyers: L&D, HR, Sales, Distribution/Channel and Trade Marketing leaders.`;

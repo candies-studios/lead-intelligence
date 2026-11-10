@@ -3,6 +3,7 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 // Provider → environment variable(s). Env vars (supabase secrets) take precedence over keys saved in the UI.
 const ENV: Record<string, string[]> = {
   anthropic: ['ANTHROPIC_API_KEY'],
+  gemini: ['GEMINI_API_KEY'],
   apollo: ['APOLLO_API_KEY'],
   hunter: ['HUNTER_API_KEY'],
   pdl: ['PDL_API_KEY'],

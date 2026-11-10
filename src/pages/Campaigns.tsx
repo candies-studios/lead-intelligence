@@ -18,7 +18,7 @@ export default function Campaigns() {
       <PageHeader title="Campaigns" subtitle="Define a search campaign and let the platform discover companies, find decision-makers, detect signals and score every prospect — with live, step-by-step status."
         actions={<Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setCreating(true)}>New campaign</Button>} />
       <Card pad={false}>
-        {list.loading ? <Spinner /> : !(list.data as any[])?.length ? <EmptyState icon={<Rocket className="h-5 w-5" />} title="No campaigns yet" action={<Button variant="primary" onClick={() => setCreating(true)}>Create your first campaign</Button>}>Example: “FMCG Decision Makers – India”, 500+ employees, L&D/HR/Sales/Trade Marketing, Director and above.</EmptyState> : (
+        {list.loading ? <Spinner /> : !(list.data as any[])?.length ? <EmptyState icon={<Rocket className="h-5 w-5" />} title="No campaigns yet" action={<Button variant="primary" onClick={() => setCreating(true)}>Create your first campaign</Button>}>Example: “Channel & Sales Leaders – India – Building Materials & Automotive”, 500+ employees, L&D/HR/Sales/Distribution/Trade Marketing, Director and above.</EmptyState> : (
           <Table><thead><tr><Th>Campaign</Th><Th>Status</Th><Th>Markets</Th><Th>Companies</Th><Th>Decision-makers</Th><Th>Leads</Th><Th>Owner</Th><Th>Created</Th></tr></thead>
             <tbody>{(list.data as any[]).map(c => (
               <tr key={c.id} className="hover:bg-slate-50/60">
@@ -40,8 +40,8 @@ export default function Campaigns() {
 
 function CampaignForm({ onClose }: { onClose: () => void }) {
   const { profile, demo } = useAuth(); const ref = useRefData(); const nav = useNavigate();
-  const [f, setF] = useState({ name: 'FMCG Decision Makers – India', description: '', segments: ['FMCG'], industries: [] as string[], countries: ['IN'], cities: '', min_employees: '500', max_employees: '',
-    departments: ['learning_development', 'human_resources', 'sales', 'trade_marketing'], seniorities: ['director', 'vp', 'head', 'cxo'], target_companies: '100', contacts_per_company: '5',
+  const [f, setF] = useState({ name: 'Sales & Channel Leaders – India', description: '', segments: ['FMCG', 'FMCD', 'Pharma & Healthcare', 'Automotive & Mobility', 'Building Materials & Construction'], industries: [] as string[], countries: ['IN'], cities: '', min_employees: '500', max_employees: '',
+    departments: ['learning_development', 'human_resources', 'sales', 'distribution_channel', 'trade_marketing'], seniorities: ['director', 'vp', 'head', 'cxo'], target_companies: '100', contacts_per_company: '5',
     detect_signals: true, enrich_emails: false, provider: '' });
   const [busy, setBusy] = useState(false); const [err, setErr] = useState<string | null>(null);
   const save = async () => {
@@ -66,8 +66,8 @@ function CampaignForm({ onClose }: { onClose: () => void }) {
       {err && <div className="mb-3"><Alert tone="error">{err}</Alert></div>}
       <div className="grid sm:grid-cols-2 gap-4">
         <Field label="Campaign name" className="sm:col-span-2"><Input value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /></Field>
-        <Field label="Industry segments"><ChipSelect options={['FMCG', 'FMCD', 'Related'] as const} value={f.segments as any} onChange={v => setF({ ...f, segments: v, industries: [] })} /></Field>
-        <Field label="Specific industries (optional)"><ChipSelect options={indOpts} value={f.industries} onChange={v => setF({ ...f, industries: v })} /></Field>
+        <Field label="Sector groups" className="sm:col-span-2"><ChipSelect options={ref.data?.segments ?? []} value={f.segments} onChange={v => setF({ ...f, segments: v, industries: [] })} /></Field>
+        <Field label="Specific industries (optional)" className="sm:col-span-2"><ChipSelect options={indOpts} value={f.industries} onChange={v => setF({ ...f, industries: v })} /></Field>
         <Field label="Countries" className="sm:col-span-2"><ChipSelect options={(ref.data?.countries ?? []).filter(c => c.is_active).map(c => c.code)} value={f.countries} onChange={v => setF({ ...f, countries: v })} labels={Object.fromEntries((ref.data?.countries ?? []).map(c => [c.code, c.name]))} /></Field>
         <Field label="Cities (optional, comma-separated)"><Input value={f.cities} onChange={e => setF({ ...f, cities: e.target.value })} /></Field>
         <div className="grid grid-cols-2 gap-3"><Field label="Min employees"><Input type="number" value={f.min_employees} onChange={e => setF({ ...f, min_employees: e.target.value })} /></Field><Field label="Max employees"><Input type="number" value={f.max_employees} onChange={e => setF({ ...f, max_employees: e.target.value })} /></Field></div>
@@ -75,7 +75,7 @@ function CampaignForm({ onClose }: { onClose: () => void }) {
         <Field label="Target seniority"><ChipSelect options={['cxo', 'vp', 'director', 'head', 'senior', 'manager'] as const} value={f.seniorities as any} onChange={v => setF({ ...f, seniorities: v })} labels={SENIORITY_LABEL} /></Field>
         <Field label="Number of companies to discover"><Input type="number" min={1} max={1000} value={f.target_companies} onChange={e => setF({ ...f, target_companies: e.target.value })} /></Field>
         <Field label="Contacts per company (up to)"><Input type="number" min={1} max={15} value={f.contacts_per_company} onChange={e => setF({ ...f, contacts_per_company: e.target.value })} /></Field>
-        <Field label="Preferred discovery provider"><Select value={f.provider} onChange={e => setF({ ...f, provider: e.target.value })}><option value="">Auto (Apollo → PDL → Claude)</option><option value="apollo">Apollo</option><option value="pdl">People Data Labs</option><option value="anthropic">Claude web search</option></Select></Field>
+        <Field label="Preferred discovery provider"><Select value={f.provider} onChange={e => setF({ ...f, provider: e.target.value })}><option value="">Auto (Apollo → PDL → AI)</option><option value="apollo">Apollo</option><option value="pdl">People Data Labs</option><option value="ai">AI web search (Gemini / Claude)</option></Select></Field>
         <div className="space-y-2 pt-5">
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.detect_signals} onChange={e => setF({ ...f, detect_signals: e.target.checked })} className="accent-navy-700" />Detect buying signals for each company</label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.enrich_emails} onChange={e => setF({ ...f, enrich_emails: e.target.checked })} className="accent-navy-700" />Enrich & verify emails (uses provider credits)</label>

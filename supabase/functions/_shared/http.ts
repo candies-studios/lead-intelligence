@@ -5,7 +5,7 @@ export class ProviderError extends Error {
 
 const lastCall = new Map<string, number>();
 const cache = new Map<string, { at: number; value: unknown }>();
-const MIN_INTERVAL_MS: Record<string, number> = { apollo: 400, hunter: 250, pdl: 300, google_cse: 150, anthropic: 0, website: 500 };
+const MIN_INTERVAL_MS: Record<string, number> = { apollo: 400, hunter: 250, pdl: 300, google_cse: 150, anthropic: 0, gemini: 0, website: 500 };
 
 async function throttle(provider: string) {
   const min = MIN_INTERVAL_MS[provider] ?? 200;

@@ -12,7 +12,7 @@ export default function Discover() {
   const [tab, setTab] = useState<'search' | 'database'>('search');
   return (
     <>
-      <PageHeader title="Discover Companies" subtitle="Search connected providers for FMCG, FMCD and related organisations, then save the relevant ones to your company database with source attribution." />
+      <PageHeader title="Discover Companies" subtitle="Search connected providers for companies across 20+ sectors that run sales, distribution, dealer/channel-partner or trade-marketing teams, then save the relevant ones with source attribution." />
       <Tabs tabs={[{ id: 'search', label: 'Provider search' }, { id: 'database', label: 'Company database' }]} value={tab} onChange={setTab} />
       {tab === 'search' ? <ProviderSearch onSaved={() => setTab('database')} /> : <CompanyDatabase />}
     </>
@@ -52,8 +52,8 @@ function ProviderSearch({ onSaved }: { onSaved: () => void }) {
     <div className="grid xl:grid-cols-[360px_1fr] gap-5">
       <Card title="Search criteria">
         <div className="space-y-4">
-          <Field label="Segments"><ChipSelect options={['FMCG', 'FMCD', 'Related'] as const} value={segments as any} onChange={v => { setSegments(v); setIndustries([]); }} /></Field>
-          <Field label="Industries (optional)" hint="Leave empty to include every industry in the selected segments"><ChipSelect options={indOpts} value={industries} onChange={setIndustries} /></Field>
+          <Field label="Sector groups" hint={`${ref.data?.segments.length ?? 0} sector groups · ${ref.data?.industries.filter(i => i.is_active).length ?? 0} industries`}><ChipSelect options={ref.data?.segments ?? []} value={segments} onChange={v => { setSegments(v); setIndustries([]); }} /></Field>
+          <Field label="Industries (optional)" hint="Leave empty to include every industry in the selected sector groups"><ChipSelect options={indOpts} value={industries} onChange={setIndustries} /></Field>
           <Field label="Countries"><ChipSelect options={(ref.data?.countries ?? []).filter(c => c.is_active).map(c => c.code)} value={countries} onChange={setCountries} labels={Object.fromEntries((ref.data?.countries ?? []).map(c => [c.code, c.name]))} /></Field>
           <Field label="Cities (comma-separated, optional)"><Input value={city} onChange={e => setCity(e.target.value)} placeholder="Mumbai, Gurugram" /></Field>
           <div className="grid grid-cols-2 gap-3">
@@ -63,7 +63,7 @@ function ProviderSearch({ onSaved }: { onSaved: () => void }) {
           <Field label="Company name / keyword"><Input value={keyword} onChange={e => setKeyword(e.target.value)} /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Ownership"><Select value={ownership} onChange={e => setOwnership(e.target.value)}><option value="">Any</option><option value="public">Public</option><option value="private">Private</option><option value="subsidiary">Subsidiary</option></Select></Field>
-            <Field label="Provider"><Select value={provider} onChange={e => setProvider(e.target.value)}><option value="">Auto (best available)</option><option value="apollo">Apollo</option><option value="pdl">People Data Labs</option><option value="anthropic">Claude web search</option></Select></Field>
+            <Field label="Provider"><Select value={provider} onChange={e => setProvider(e.target.value)}><option value="">Auto (best available)</option><option value="apollo">Apollo</option><option value="pdl">People Data Labs</option><option value="ai">AI web search (Gemini / Claude)</option></Select></Field>
           </div>
           <Button variant="primary" className="w-full" icon={<Search className="h-4 w-4" />} loading={busy} onClick={() => run(1)} disabled={!countries.length || !segments.length}>Search companies</Button>
         </div>
@@ -125,7 +125,7 @@ function CompanyDatabase() {
       <div className="flex flex-wrap gap-2 p-4 border-b border-slate-100">
         <Input placeholder="Search company name…" value={text} onChange={e => setText(e.target.value)} className="max-w-xs" />
         <Select value={country} onChange={e => setCountry(e.target.value)} className="w-40"><option value="">All countries</option>{ref.data?.countries.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}</Select>
-        <Select value={segment} onChange={e => setSegment(e.target.value)} className="w-32"><option value="">All segments</option><option>FMCG</option><option>FMCD</option><option>Related</option></Select>
+        <Select value={segment} onChange={e => setSegment(e.target.value)} className="w-52"><option value="">All sector groups</option>{ref.data?.segments.map(s => <option key={s}>{s}</option>)}</Select>
         <Select value={industry} onChange={e => setIndustry(e.target.value)} className="w-48"><option value="">All industries</option>{ref.data?.industries.map(i => <option key={i.id}>{i.name}</option>)}</Select>
         <Select value={size} onChange={e => setSize(e.target.value)} className="w-36"><option value="">Any size</option><option value="200-499">200–499</option><option value="500-999">500–999</option><option value="1000-4999">1,000–4,999</option><option value="5000">5,000+</option></Select>
         <Select value={cls} onChange={e => setCls(e.target.value)} className="w-36"><option value="">Any type</option>{['manufacturer', 'distributor', 'retailer', 'ecommerce', 'mixed'].map(o => <option key={o}>{o}</option>)}</Select>

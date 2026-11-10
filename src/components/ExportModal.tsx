@@ -21,7 +21,7 @@ export default function ExportModal({ onClose, defaultScope }: { onClose: () => 
   const { demo } = useAuth(); const ref = useRefData();
   const camps = useAsync(() => q(supabase.from('campaigns').select('id, name').eq('is_demo', demo).order('created_at', { ascending: false })), [demo]);
   const [scope, setScope] = useState<ExportScope>(defaultScope); const [format, setFormat] = useState<'xlsx' | 'csv'>('xlsx');
-  const [country, setCountry] = useState('IN'); const [industry, setIndustry] = useState('FMCG'); const [campaignId, setCampaignId] = useState('');
+  const [country, setCountry] = useState('IN'); const [industry, setIndustry] = useState(''); const [campaignId, setCampaignId] = useState('');
   const [busy, setBusy] = useState(false);
   const run = async () => {
     setBusy(true);
@@ -29,11 +29,11 @@ export default function ExportModal({ onClose, defaultScope }: { onClose: () => 
     catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
   };
   return (
-    <Modal open onClose={onClose} title="Export data" footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} onClick={run} disabled={scope === 'campaign' && !campaignId}>Download</Button></>}>
+    <Modal open onClose={onClose} title="Export data" footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} onClick={run} disabled={(scope === 'campaign' && !campaignId) || (scope === 'industry' && !industry)}>Download</Button></>}>
       <div className="space-y-4">
         <Field label="What to export"><Select value={scope} onChange={e => setScope(e.target.value as ExportScope)}>{SCOPES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}</Select></Field>
         {scope === 'country' && <Field label="Country"><Select value={country} onChange={e => setCountry(e.target.value)}>{ref.data?.countries.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}</Select></Field>}
-        {scope === 'industry' && <Field label="Segment or industry"><Select value={industry} onChange={e => setIndustry(e.target.value)}><option>FMCG</option><option>FMCD</option><option>Related</option>{ref.data?.industries.map(i => <option key={i.id}>{i.name}</option>)}</Select></Field>}
+        {scope === 'industry' && <Field label="Segment or industry"><Select value={industry} onChange={e => setIndustry(e.target.value)}><option value="">Select…</option><optgroup label="Sector groups">{ref.data?.segments.map(s => <option key={s}>{s}</option>)}</optgroup><optgroup label="Industries">{ref.data?.industries.map(i => <option key={i.id}>{i.name}</option>)}</optgroup></Select></Field>}
         {scope === 'campaign' && <Field label="Campaign"><Select value={campaignId} onChange={e => setCampaignId(e.target.value)}><option value="">Select…</option>{(camps.data as any[] ?? []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>}
         <Field label="Format"><Select value={format} onChange={e => setFormat(e.target.value as any)}><option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV</option></Select></Field>
         <p className="text-xs text-ink-faint">Exports include source URLs, email verification status, scores and last-verified dates. {demo && 'Demo mode is on — only demo records will be exported.'}</p>

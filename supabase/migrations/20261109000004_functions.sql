@@ -1,6 +1,6 @@
 -- Dedupe helpers, duplicate management and analytics RPCs
 create or replace function public.find_company_by_name(p_name text, p_country text, p_demo boolean default false)
-returns setof public.companies language sql stable security definer set search_path = public as $$
+returns setof public.companies language sql stable security definer set search_path = public, extensions as $$
   select * from public.companies c
   where c.is_demo = p_demo
     and (p_country is null or c.country_code is null or c.country_code = p_country)
@@ -11,7 +11,7 @@ returns setof public.companies language sql stable security definer set search_p
 $$;
 
 create or replace function public.find_contact(p_company uuid, p_name text, p_email text)
-returns setof public.contacts language sql stable security definer set search_path = public as $$
+returns setof public.contacts language sql stable security definer set search_path = public, extensions as $$
   select * from public.contacts
   where (p_email is not null and email = p_email::citext)
      or (company_id = p_company and public.normalize_name(full_name) = public.normalize_name(p_name))
@@ -21,7 +21,7 @@ $$;
 -- Possible duplicate companies for the admin duplicate manager
 create or replace function public.company_duplicate_candidates(p_threshold real default 0.6)
 returns table(a_id uuid, a_name text, b_id uuid, b_name text, country_code text, similarity real)
-language sql stable security invoker set search_path = public as $$
+language sql stable security invoker set search_path = public, extensions as $$
   select a.id, a.name, b.id, b.name, coalesce(a.country_code, b.country_code)::text, similarity(a.normalized_name, b.normalized_name)
   from public.companies a join public.companies b
     on a.id < b.id and a.is_demo = b.is_demo
@@ -34,7 +34,7 @@ $$;
 
 -- Merge p_drop into p_keep (admins only)
 create or replace function public.merge_companies(p_keep uuid, p_drop uuid)
-returns void language plpgsql security definer set search_path = public as $$
+returns void language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not public.is_admin() then raise exception 'Admins only'; end if;
   if p_keep = p_drop then raise exception 'Cannot merge a company into itself'; end if;
@@ -60,7 +60,7 @@ grant execute on function public.merge_companies(uuid, uuid) to authenticated;
 
 -- Dashboard aggregate (RLS-respecting: security invoker)
 create or replace function public.dashboard_stats(p_demo boolean default false)
-returns jsonb language sql stable security invoker set search_path = public as $$
+returns jsonb language sql stable security invoker set search_path = public, extensions as $$
   select jsonb_build_object(
     'companies', (select count(*) from companies where is_demo = p_demo),
     'qualified_companies', (select count(distinct company_id) from leads where is_demo = p_demo and stage not in ('newly_discovered','research_pending','not_relevant')),

@@ -1,7 +1,7 @@
 // Orchestration: discovery → dedupe/persist → contact finding → signals → scoring.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { getCreds } from './secrets.ts';
-import { getClaudeConfig } from './ai.ts';
+import { aiMessage, aiAvailable } from './ai.ts';
 import { getSetting } from './context.ts';
 import { domainFromUrl } from './http.ts';
 import { classifyTitle, matchesTargets } from './titles.ts';
@@ -11,7 +11,7 @@ import { apolloSearchCompanies, apolloSearchPeople } from './providers/apollo.ts
 import { pdlSearchCompanies, pdlSearchPeople } from './providers/pdl.ts';
 import { hunterDomainSearch, hunterVerify, inferEmail } from './providers/hunter.ts';
 import { googleSearch } from './providers/google.ts';
-import { claudeMessage, extractJson, wasRetrieved, filterToRetrieved, WOT_CONTEXT } from './providers/claude.ts';
+import { extractJson, wasRetrieved, filterToRetrieved, WOT_CONTEXT } from './providers/claude.ts';
 
 export type Log = (level: 'info' | 'warn' | 'error' | 'success', message: string, meta?: Record<string, unknown>) => PromiseLike<void> | void;
 const noop: Log = () => {};
@@ -32,17 +32,17 @@ export async function countryCode(admin: SupabaseClient, name?: string | null): 
 }
 
 // ---------------------------------------------------------------- company discovery
-export async function claudeDiscoverCompanies(admin: SupabaseClient, q: CompanyQuery): Promise<{ items: CompanyCandidate[]; exhausted: boolean; retrieved: WebResult[] }> {
-  const cfg = (await getClaudeConfig(admin))!;
+export async function aiDiscoverCompanies(admin: SupabaseClient, q: CompanyQuery): Promise<{ items: CompanyCandidate[]; exhausted: boolean; retrieved: WebResult[]; aiProvider: string }> {
   const where = q.cities.length ? `${q.cities.join(', ')} (${q.countries.map(c => c.name).join(', ')})` : q.countries.map(c => c.name).join(', ');
   const sys = `You are a B2B market researcher. Only report companies you found in web search results during this conversation. Never invent companies, websites or numbers. If a value is not stated in a source, use null.`;
   const user = `${WOT_CONTEXT}
 
-Find real ${q.segments.join('/')} companies (${q.industries.join(', ') || 'any relevant sub-industry'}) headquartered or with a significant operating entity in ${where}.
+Find real companies in these sectors: ${q.segments.join(', ')}${q.industries.length ? ` (industries: ${q.industries.slice(0, 25).join(', ')})` : ''}, headquartered or with a significant operating entity in ${where}.
+Prioritise companies with sizeable sales, distribution, dealer/channel-partner or trade-marketing teams — the audience for World of Trade.
 ${q.minEmployees ? `Prefer companies with at least ${q.minEmployees} employees.` : ''} ${q.keyword ? `Keyword: ${q.keyword}.` : ''}
 This is result page ${q.page}; return up to ${Math.min(q.perPage, 15)} companies${q.page > 1 ? ' that are different from the most obvious market leaders (skip the top ' + (q.page - 1) * 15 + ' most famous ones)' : ''}.
 Return ONLY JSON: {"companies":[{"name":"","website":"https://...","industry":"","country":"","hq_city":null,"employee_count":null,"description":"one factual sentence","brands":[],"parent_company":null,"ownership":"public|private|subsidiary|unknown","source_url":"URL of the search result that supports this entry"}]}`;
-  const res = await claudeMessage({ ...cfg, maxTokens: 4000 }, sys, user, { webSearch: true, maxSearches: 5, blockedDomains: ['linkedin.com'] });
+  const res = await aiMessage(admin, sys, user, { webSearch: true, maxSearches: 5, blockedDomains: ['linkedin.com'], maxTokens: 4000 });
   const parsed = extractJson<{ companies: any[] }>(res.text);
   const items: CompanyCandidate[] = [];
   for (const c of parsed.companies ?? []) {
@@ -54,33 +54,35 @@ Return ONLY JSON: {"companies":[{"name":"","website":"https://...","industry":""
       employee_count: Number.isFinite(c.employee_count) ? c.employee_count : null, employee_range: null,
       revenue_usd: null, revenue_text: null, ownership: ['public', 'private', 'subsidiary'].includes(c.ownership) ? c.ownership : 'unknown',
       description: c.description ?? null, parent_company_name: c.parent_company ?? null,
-      brands: Array.isArray(c.brands) ? c.brands.slice(0, 15).map(String) : [], provider: 'anthropic_web_search', external_id: null,
+      brands: Array.isArray(c.brands) ? c.brands.slice(0, 15).map(String) : [], provider: `${res.provider}_web_search`, external_id: null,
       source_urls: [{ url: c.source_url, type: 'web', title: res.retrieved.find(r => wasRetrieved(c.source_url, [r]))?.title }],
     });
   }
-  return { items, exhausted: items.length === 0, retrieved: res.retrieved };
+  return { items, exhausted: items.length === 0, retrieved: res.retrieved, aiProvider: res.provider };
 }
 
 export async function discoverCompanies(admin: SupabaseClient, q: CompanyQuery, preferred?: string[], log: Log = noop) {
-  const order = preferred?.length ? preferred : ['apollo', 'pdl', 'anthropic'];
+  const order = (preferred?.length ? preferred : ['apollo', 'pdl', 'ai']).map(p => (p === 'anthropic' || p === 'gemini' ? 'ai' : p));
   const tried: string[] = [];
   for (const p of order) {
-    const creds = await getCreds(admin, p);
-    if (!creds) continue;
+    const creds = p === 'ai' ? null : await getCreds(admin, p);
+    if (p === 'ai' ? !(await aiAvailable(admin)) : !creds) continue;
     tried.push(p);
     try {
-      const r = p === 'apollo' ? await apolloSearchCompanies(creds.apiKey, q)
-        : p === 'pdl' ? await pdlSearchCompanies(creds.apiKey, q)
-        : p === 'anthropic' ? await claudeDiscoverCompanies(admin, q) : null;
+      let r: { items: CompanyCandidate[]; exhausted: boolean } | null = null;
+      let used = p;
+      if (p === 'apollo') r = await apolloSearchCompanies(creds!.apiKey, q);
+      else if (p === 'pdl') r = await pdlSearchCompanies(creds!.apiKey, q);
+      else if (p === 'ai') { const a = await aiDiscoverCompanies(admin, q); r = a; used = a.aiProvider; }
       if (!r) continue;
       for (const c of r.items) c.country_code = c.country_code ?? await countryCode(admin, c.country_name);
-      if (r.items.length || p === order[order.length - 1]) return { ...r, provider: p, tried };
+      if (r.items.length || p === order[order.length - 1]) return { ...r, provider: used, tried };
       await log('warn', `${p} returned no companies for this page; trying next provider`);
     } catch (e) {
       await log('warn', `${p} company search failed: ${(e as Error).message}`);
     }
   }
-  if (!tried.length) throw Object.assign(new Error('No company-discovery provider is connected. Connect Apollo, People Data Labs or Claude on the Integrations page, or add companies manually.'), { status: 412 });
+  if (!tried.length) throw Object.assign(new Error('No company-discovery provider is connected. Connect Gemini, Claude, Apollo or People Data Labs on the Integrations page, or add companies manually.'), { status: 412 });
   return { items: [] as CompanyCandidate[], exhausted: true, provider: tried.at(-1)!, tried };
 }
 
@@ -139,14 +141,13 @@ function mergeContacts(list: ContactCandidate[]): ContactCandidate[] {
   return [...map.values()];
 }
 
-export async function claudeFindContacts(admin: SupabaseClient, q: ContactQuery): Promise<{ items: ContactCandidate[]; retrieved: WebResult[] }> {
-  const cfg = (await getClaudeConfig(admin))!;
+export async function aiFindContacts(admin: SupabaseClient, q: ContactQuery): Promise<{ items: ContactCandidate[]; retrieved: WebResult[]; aiProvider: string }> {
   const sys = `You are a B2B research assistant. Report ONLY people explicitly named in web search results you retrieved in this conversation as CURRENTLY holding the role at the company. Never guess names, emails or phone numbers. Do not output emails or phone numbers at all.`;
   const user = `Company: ${q.companyName}${q.domain ? ` (${q.domain})` : ''}${q.countryName ? `, ${q.countryName}` : ''}.
 Find current leaders in: ${q.departments.join(', ')} (e.g. CHRO, Head of L&D, Head of Capability, Sales Director, Head of Trade Marketing, Category Director).
 Use the company's leadership page, press releases, annual reports and reputable business news. Up to ${q.limit} people.
 Return ONLY JSON: {"people":[{"full_name":"","title":"","source_url":"page that names them in this role","published":"YYYY-MM-DD or null","linkedin_url":"only if a linkedin.com/in URL appeared verbatim in your search results, else null","bio":"one factual sentence from the source or null"}]}`;
-  const res = await claudeMessage({ ...cfg, maxTokens: 2500 }, sys, user, { webSearch: true, maxSearches: 4 });
+  const res = await aiMessage(admin, sys, user, { webSearch: true, maxSearches: 4, maxTokens: 2500 });
   const parsed = extractJson<{ people: any[] }>(res.text);
   const items: ContactCandidate[] = [];
   for (const p of parsed.people ?? []) {
@@ -157,31 +158,34 @@ Return ONLY JSON: {"people":[{"full_name":"","title":"","source_url":"page that 
       full_name: String(p.full_name).trim(), first_name: first ?? null, last_name: rest.join(' ') || null, title: p.title,
       email: null, email_status: 'unavailable', email_confidence: null, phone: null,
       linkedin_url: p.linkedin_url && wasRetrieved(p.linkedin_url, res.retrieved) ? p.linkedin_url : null,
-      city: null, country_name: q.countryName ?? null, bio: p.bio ?? null, provider: 'anthropic_web_search', external_id: null,
+      city: null, country_name: q.countryName ?? null, bio: p.bio ?? null, provider: `${res.provider}_web_search`, external_id: null,
       source_urls: [p.source_url], confidence: old ? 'low' : 'medium',
     });
   }
-  return { items, retrieved: res.retrieved };
+  return { items, retrieved: res.retrieved, aiProvider: res.provider };
 }
 
 export interface FindContactsOptions { enrichEmails: boolean; preferred?: string[]; log?: Log }
 
 export async function findContacts(admin: SupabaseClient, q: ContactQuery, opts: FindContactsOptions) {
   const log = opts.log ?? noop;
-  const order = opts.preferred?.length ? opts.preferred : ['apollo', 'hunter', 'pdl', 'anthropic'];
+  const order = (opts.preferred?.length ? opts.preferred : ['apollo', 'hunter', 'pdl', 'ai']).map(p => (p === 'anthropic' || p === 'gemini' ? 'ai' : p));
   const all: ContactCandidate[] = []; const used: string[] = []; let pattern: string | null = null;
   for (const p of order) {
-    const creds = await getCreds(admin, p);
-    if (!creds) continue;
+    const creds = p === 'ai' ? null : await getCreds(admin, p);
+    if (p === 'ai' ? !(await aiAvailable(admin)) : !creds) continue;
     try {
-      if (p === 'apollo') all.push(...(await apolloSearchPeople(creds.apiKey, q, opts.enrichEmails)).items);
-      if (p === 'hunter') { const r = await hunterDomainSearch(creds.apiKey, q); pattern = r.pattern; all.push(...r.items); }
-      if (p === 'pdl') all.push(...(await pdlSearchPeople(creds.apiKey, q)).items);
-      if (p === 'anthropic') {
+      if (p === 'apollo') all.push(...(await apolloSearchPeople(creds!.apiKey, q, opts.enrichEmails)).items);
+      if (p === 'hunter') { const r = await hunterDomainSearch(creds!.apiKey, q); pattern = r.pattern; all.push(...r.items); }
+      if (p === 'pdl') all.push(...(await pdlSearchPeople(creds!.apiKey, q)).items);
+      if (p === 'ai') {
         // Use AI web research only when structured providers found too few decision-makers
         const relevantSoFar = all.filter(c => matchesTargets(classifyTitle(c.title), q.departments, q.seniorities)).length;
         if (relevantSoFar >= q.limit) continue;
-        all.push(...(await claudeFindContacts(admin, q)).items);
+        const a = await aiFindContacts(admin, q);
+        all.push(...a.items);
+        used.push(a.aiProvider);
+        continue;
       }
       used.push(p);
     } catch (e) { await log('warn', `${p} contact search failed for ${q.companyName}: ${(e as Error).message}`); }
@@ -247,8 +251,7 @@ export async function upsertContact(admin: SupabaseClient, companyId: string, co
 const SIGNAL_TYPES = ['leadership_appointment', 'market_expansion', 'product_launch', 'workforce_growth', 'sales_transformation', 'restructuring', 'leadership_programme', 'commercial_excellence', 'distribution_strategy', 'merger_acquisition', 'annual_report_capability', 'sales_conference_academy'];
 
 export async function detectSignals(admin: SupabaseClient, company: { id: string; name: string; domain: string | null; country_code: string | null }, log: Log = noop): Promise<number> {
-  const cfg = await getClaudeConfig(admin, false);
-  if (!cfg) { await log('warn', 'Signal detection skipped: Claude not connected'); return 0; }
+  if (!(await aiAvailable(admin))) { await log('warn', 'Signal detection skipped: no AI provider (Gemini or Claude) connected'); return 0; }
   const google = await getCreds(admin, 'google_cse');
   const evidence: WebResult[] = [];
   if (google) {
@@ -266,7 +269,7 @@ Company: ${company.name}${company.domain ? ` (${company.domain})` : ''}.
 ${evidence.length ? `Search results:\n${evidence.map(e => `- ${e.title} | ${e.url} | ${e.snippet}`).join('\n')}` : 'Search the web for news from the last 12 months.'}
 Signal types: ${SIGNAL_TYPES.join(', ')}.
 Return ONLY JSON: {"signals":[{"signal_type":"","description":"factual, 1-2 sentences","source_url":"","source_title":"","published_at":"YYYY-MM-DD or null","training_opportunity":"hypothesis","suggested_approach":"","confidence":"high|medium|low"}]} — empty array if nothing relevant.`;
-  const res = await claudeMessage({ ...cfg, maxTokens: 2500 }, sys, user, { webSearch: !evidence.length, maxSearches: 4 });
+  const res = await aiMessage(admin, sys, user, { webSearch: !evidence.length, maxSearches: 4, maxTokens: 2500 });
   const allowed = [...evidence, ...res.retrieved];
   const parsed = extractJson<{ signals: any[] }>(res.text);
   const signals = filterToRetrieved(parsed.signals ?? [], allowed).filter((s: any) => SIGNAL_TYPES.includes(s.signal_type) && s.description);

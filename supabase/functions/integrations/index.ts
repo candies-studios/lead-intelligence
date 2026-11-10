@@ -5,20 +5,27 @@ import { apolloPing } from '../_shared/providers/apollo.ts';
 import { hunterPing } from '../_shared/providers/hunter.ts';
 import { pdlPing } from '../_shared/providers/pdl.ts';
 import { googlePing } from '../_shared/providers/google.ts';
-import { claudeMessage } from '../_shared/providers/claude.ts';
-import { getClaudeConfig } from '../_shared/ai.ts';
+import { aiMessage } from '../_shared/ai.ts';
 
-const TESTABLE = ['anthropic', 'apollo', 'hunter', 'pdl', 'google_cse'];
+const TESTABLE = ['gemini', 'anthropic', 'apollo', 'hunter', 'pdl', 'google_cse'];
 
 Deno.serve(handler(async (req, body) => {
   const ctx = await getContext(req);
   const admins = ['super_admin', 'admin'];
 
   if (body.action === 'status') {
+    // Self-heal: make sure the Gemini card exists (older databases were created before Gemini support).
+    await ctx.admin.from('integrations').upsert({
+      provider: 'gemini', display_name: 'Gemini (Google)', category: 'ai',
+      description: 'AI research, discovery, signals and outreach using Grounding with Google Search. Free tier available.',
+      status: 'not_configured',
+    }, { onConflict: 'provider', ignoreDuplicates: true });
     const { data: rows } = await ctx.admin.from('integrations').select('*').order('category');
     const out = [];
     for (const r of rows ?? []) {
       const configured = TESTABLE.includes(r.provider) ? !!(await getCreds(ctx.admin, r.provider)) : null;
+      // First time a key is detected, test it automatically so the card shows a real status.
+      if (configured && r.status === 'not_configured') { const t = await test(ctx, r.provider); Object.assign(r, { status: t.status, last_error: t.error, last_checked_at: new Date().toISOString() }); }
       const source = TESTABLE.includes(r.provider) ? (Deno.env.get(envName(r.provider)) ? 'environment' : configured ? 'saved_key' : null) : null;
       out.push({ ...r, configured, key_source: source });
     }
@@ -51,7 +58,7 @@ Deno.serve(handler(async (req, body) => {
   throw new HttpError(400, 'Unknown action');
 }));
 
-function envName(p: string) { return ({ anthropic: 'ANTHROPIC_API_KEY', apollo: 'APOLLO_API_KEY', hunter: 'HUNTER_API_KEY', pdl: 'PDL_API_KEY', google_cse: 'GOOGLE_CSE_KEY' } as Record<string, string>)[p] ?? ''; }
+function envName(p: string) { return ({ gemini: 'GEMINI_API_KEY', anthropic: 'ANTHROPIC_API_KEY', apollo: 'APOLLO_API_KEY', hunter: 'HUNTER_API_KEY', pdl: 'PDL_API_KEY', google_cse: 'GOOGLE_CSE_KEY' } as Record<string, string>)[p] ?? ''; }
 
 async function test(ctx: any, provider: string) {
   const creds = await getCreds(ctx.admin, provider);
@@ -62,7 +69,9 @@ async function test(ctx: any, provider: string) {
       if (provider === 'hunter') await hunterPing(creds.apiKey);
       if (provider === 'pdl') await pdlPing(creds.apiKey);
       if (provider === 'google_cse') await googlePing(creds.apiKey, creds.extra.cx);
-      if (provider === 'anthropic') { const cfg = (await getClaudeConfig(ctx.admin))!; await claudeMessage({ ...cfg, maxTokens: 5 }, 'Reply with OK', 'ping'); }
+      if (provider === 'anthropic') await aiMessage(ctx.admin, 'Reply with OK', 'ping', { maxTokens: 5 }, 'anthropic');
+      // Gemini: test WITH Google Search grounding, because discovery and research depend on it
+      if (provider === 'gemini') await aiMessage(ctx.admin, 'Answer in one short sentence.', 'Search the web: what does the company World of Trade (worldoftrade.pro) offer?', { webSearch: true, maxTokens: 200 }, 'gemini');
       status = 'connected';
     } catch (e) { status = 'error'; error = (e as Error).message.slice(0, 400); }
   }

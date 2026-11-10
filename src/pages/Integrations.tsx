@@ -6,6 +6,7 @@ import { useAsync, fmtDateTime } from '@/lib/hooks';
 import { Alert, Badge, Button, Card, Field, Input, Modal, PageHeader, Spinner, toast } from '@/components/ui';
 
 const HELP: Record<string, { url: string; note: string }> = {
+  gemini: { url: 'https://aistudio.google.com/apikey', note: 'Free-tier AI with Grounding with Google Search: discovery, research reports, signals and outreach drafts. If search grounding errors, enable billing on the Google Cloud project (the monthly free search allowance still applies).' },
   anthropic: { url: 'https://console.anthropic.com/settings/keys', note: 'Powers research reports, signal detection, outreach drafts and (as a fallback) web-search-based discovery.' },
   apollo: { url: 'https://developer.apollo.io/keys/', note: 'Company search, people search; email enrichment uses credits and is opt-in per campaign.' },
   hunter: { url: 'https://hunter.io/api-keys', note: 'Domain search for professional emails with sources, email pattern, and verification.' },

@@ -1,6 +1,6 @@
 # WORLD OF TRADE | LEAD INTELLIGENCE
 
-An AI-powered B2B prospecting platform for **World of Trade** (https://worldoftrade.pro/). It finds FMCG and FMCD companies, identifies their L&D, HR, Sales and Trade Marketing decision-makers, researches buying signals, scores each prospect out of 100 and manages outreach through to conversion.
+An AI-powered B2B prospecting platform for **World of Trade** (https://worldoftrade.pro/), positioned for **Sales, Trade Marketing, Distribution & Channel Management professionals across industries**. It covers 16 sector groups and 100+ industries (FMCG, consumer durables, pharma & healthcare, automotive, building materials, agri-inputs, telecom & technology, industrial, chemicals, financial services, energy, retail, distribution, apparel & lifestyle, logistics, hospitality & services). It finds companies, identifies their L&D, HR, Sales, Distribution & Channel and Trade Marketing decision-makers, researches buying signals, scores each prospect out of 100 and manages outreach through to conversion.
 
 It is built to favour lead quality over volume. Every external record keeps its source. Inferred emails are always labelled as inferred. The app never generates companies, people or contact details to make itself look populated.
 
@@ -61,10 +61,10 @@ You can store keys in either of two places:
 - **Integrations page** (admins): keys are saved to `integration_secrets`. That table has RLS enabled, no policies, and its grants are revoked from `anon` and `authenticated`, so only Edge Functions using the service role can read it.
 - **Supabase secrets**, which take precedence over saved keys:
 ```bash
-supabase secrets set ANTHROPIC_API_KEY=... APOLLO_API_KEY=... HUNTER_API_KEY=... PDL_API_KEY=... GOOGLE_CSE_KEY=... GOOGLE_CSE_CX=...
+supabase secrets set GEMINI_API_KEY=... ANTHROPIC_API_KEY=... APOLLO_API_KEY=... HUNTER_API_KEY=... PDL_API_KEY=... GOOGLE_CSE_KEY=... GOOGLE_CSE_CX=...
 supabase secrets set ANTHROPIC_MODEL=claude-sonnet-5-5   # optional override
 ```
-Only Claude is needed to get started: it covers web-search discovery, contact research from public pages, reports, signals and outreach. Apollo, Hunter and PDL add structured company and contact data plus verified emails.
+Only **one AI provider** is needed to get started: **Gemini** (free tier at https://aistudio.google.com/apikey, secret `GEMINI_API_KEY`) or **Claude** (`ANTHROPIC_API_KEY`). It covers web-search discovery, contact research from public pages, reports, signals and outreach. With both connected, *Auto* mode falls back to the other if one fails (e.g. no credit). Gemini uses Grounding with Google Search; if that errors, enable billing on the Google Cloud project (the monthly free search allowance still applies). Apollo, Hunter and PDL add structured company and contact data plus verified emails.
 
 ### 5. Run
 ```bash
@@ -123,7 +123,7 @@ The migrations were also checked against PostgreSQL 17 with a Supabase auth stub
 
 | Spec section | Where |
 |---|---|
-| 3–5 Industries, designations, countries (configurable) | `migrations/..._reference_data.sql`, Settings → Industries / Countries / Designations |
+| 3–5 Sector groups & industries (20+ sectors), designations incl. Distribution & Channel, countries (all configurable) | `migrations/..._reference_data.sql`, Settings → Industries / Countries / Designations |
 | 6 Company discovery, dedupe, parent/subsidiary | Discover page, `discover-companies`, `pipeline.upsertCompany`, Settings → Duplicates |
 | 7 Decision-maker finder, confidence, email status | Find Decision Makers, Company → Find decision-makers, `find-contacts` |
 | 8 Scoring (weights configurable, explained) | `_shared/scoring.ts`, Lead page score breakdown, Settings → Lead scoring |

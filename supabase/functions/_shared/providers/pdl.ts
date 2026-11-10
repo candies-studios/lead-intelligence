@@ -5,18 +5,33 @@ import type { CompanyCandidate, CompanyQuery, ContactCandidate, ContactQuery, Pr
 const BASE = 'https://api.peopledatalabs.com/v5';
 
 // PDL canonical industry values that map to World of Trade targets
+// PDL canonical industry values per sector group (unknown groups fall back to keyword search on the industry names)
 const PDL_INDUSTRIES: Record<string, string[]> = {
-  FMCG: ['food & beverages', 'consumer goods', 'cosmetics', 'dairy', 'food production', 'tobacco', 'health, wellness and fitness', 'beverages'],
-  FMCD: ['consumer electronics', 'furniture', 'electrical/electronic manufacturing', 'wireless'],
-  Related: ['retail', 'wholesale', 'supermarkets'],
+  'FMCG': ['food & beverages', 'consumer goods', 'cosmetics', 'dairy', 'food production', 'tobacco', 'health, wellness and fitness', 'wine and spirits'],
+  'FMCD': ['consumer electronics', 'furniture', 'electrical/electronic manufacturing', 'wireless'],
+  'Retail & E-commerce': ['retail', 'supermarkets', 'internet'],
+  'Distribution & Wholesale': ['wholesale', 'import and export'],
+  'Pharma & Healthcare': ['pharmaceuticals', 'medical devices', 'hospital & health care', 'biotechnology', 'veterinary'],
+  'Automotive & Mobility': ['automotive'],
+  'Building Materials & Construction': ['building materials', 'construction', 'real estate'],
+  'Industrial & Engineering': ['machinery', 'industrial automation', 'mechanical or industrial engineering', 'packaging and containers', 'electrical/electronic manufacturing'],
+  'Chemicals & Materials': ['chemicals', 'plastics'],
+  'Agriculture & Agri-inputs': ['farming', 'dairy', 'ranching'],
+  'Technology & Telecom': ['telecommunications', 'computer hardware', 'computer software', 'information technology and services', 'computer networking'],
+  'Financial Services & Insurance': ['banking', 'insurance', 'financial services', 'investment management'],
+  'Energy & Utilities': ['oil & energy', 'renewables & environment', 'utilities'],
+  'Logistics & Supply Chain': ['logistics and supply chain', 'transportation/trucking/railroad', 'package/freight delivery'],
+  'Textiles, Apparel & Lifestyle': ['apparel & fashion', 'luxury goods & jewelry', 'textiles', 'sporting goods'],
+  'Media, Hospitality & Services': ['media production', 'entertainment', 'hospitality', 'restaurants', 'leisure, travel & tourism', 'education management'],
+  'Related': ['retail', 'wholesale', 'supermarkets'],
 };
 const LEVELS: Record<string, string> = { cxo: 'cxo', vp: 'vp', director: 'director', head: 'director', manager: 'manager', senior: 'senior' };
-const ROLES: Record<string, string> = { learning_development: 'human_resources', human_resources: 'human_resources', sales: 'sales', trade_marketing: 'marketing' };
+const ROLES: Record<string, string> = { learning_development: 'human_resources', human_resources: 'human_resources', sales: 'sales', distribution_channel: 'sales', trade_marketing: 'marketing' };
 
 export async function pdlSearchCompanies(key: string, q: CompanyQuery): Promise<ProviderResult<CompanyCandidate>> {
   const must: any[] = [
     { terms: { 'location.country': q.countries.map(c => c.name.toLowerCase()) } },
-    { terms: { industry: q.segments.flatMap(s => PDL_INDUSTRIES[s] ?? []) } },
+    { terms: { industry: [...new Set(q.segments.flatMap(s => PDL_INDUSTRIES[s] ?? []))] } },
   ];
   if (q.minEmployees || q.maxEmployees) must.push({ range: { employee_count: { ...(q.minEmployees ? { gte: q.minEmployees } : {}), ...(q.maxEmployees ? { lte: q.maxEmployees } : {}) } } });
   if (q.cities.length) must.push({ terms: { 'location.locality': q.cities.map(c => c.toLowerCase()) } });
